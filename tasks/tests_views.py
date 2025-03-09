@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
-from tasks.models import Task, ChecklistItem
+from tasks.models import Task, ChecklistItem, TaskDependency
 import datetime
 import json
 
@@ -373,3 +373,208 @@ class ChecklistItemViewSetTest(TestCase):
         # since authorization may be happening at different levels
         self.assertIn(response.status_code, 
                       [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST]) 
+
+
+class TaskDependencyViewSetTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users for testing
+        cls.user1 = User.objects.create_user(username='testuser1', password='12345', email='user1@example.com')
+        cls.user2 = User.objects.create_user(username='testuser2', password='12345', email='user2@example.com')
+        cls.user3 = User.objects.create_user(username='testuser3', password='12345', email='user3@example.com')
+        
+        # Create tasks for testing
+        cls.task1 = Task.objects.create(
+            title='Task 1',
+            description='First task',
+            due_date=timezone.now() + datetime.timedelta(days=7),
+            status='TODO',
+            priority='MEDIUM',
+            owner=cls.user1,
+            assigned_to=cls.user2
+        )
+        
+        cls.task2 = Task.objects.create(
+            title='Task 2',
+            description='Second task',
+            due_date=timezone.now() + datetime.timedelta(days=10),
+            status='TODO',
+            priority='HIGH',
+            owner=cls.user1,
+            assigned_to=cls.user2
+        )
+        
+        cls.task3 = Task.objects.create(
+            title='Task 3',
+            description='Third task',
+            due_date=timezone.now() + datetime.timedelta(days=14),
+            status='TODO',
+            priority='LOW',
+            owner=cls.user3,  # Different owner
+            assigned_to=cls.user3
+        )
+        
+        # Create a dependency
+        cls.dependency = TaskDependency.objects.create(
+            task=cls.task2,
+            depends_on=cls.task1,
+            created_by=cls.user1,
+            notes='Task 2 depends on Task 1'
+        )
+    
+    def setUp(self):
+        self.client = APIClient()
+    
+    def test_list_dependencies(self):
+        """Test retrieving all dependencies for a task."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-dependency-list', kwargs={'task_pk': self.task2.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['notes'], 'Task 2 depends on Task 1')
+    
+    def test_get_dependency(self):
+        """Test retrieving a specific dependency."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-dependency-detail', kwargs={'task_pk': self.task2.id, 'pk': self.dependency.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['notes'], 'Task 2 depends on Task 1')
+        self.assertTrue(response.data['active'])
+    
+    def test_create_dependency(self):
+        """Test creating a new dependency."""
+        self.client.force_authenticate(user=self.user1)
+        
+        # Create two new tasks owned by user1
+        task4 = Task.objects.create(
+            title='Task 4',
+            description='Fourth task',
+            due_date=timezone.now() + datetime.timedelta(days=14),
+            status='TODO',
+            priority='MEDIUM',
+            owner=self.user1,
+            assigned_to=self.user2
+        )
+        
+        task5 = Task.objects.create(
+            title='Task 5',
+            description='Fifth task',
+            due_date=timezone.now() + datetime.timedelta(days=21),
+            status='TODO',
+            priority='LOW',
+            owner=self.user1,
+            assigned_to=self.user2
+        )
+        
+        url = reverse('task-dependency-list', kwargs={'task_pk': task4.id})
+        
+        data = {
+            'task': task4.id,
+            'depends_on': task5.id,  # Using task5 which is owned by user1
+            'notes': 'Task 4 depends on Task 5'
+        }
+        
+        response = self.client.post(url, data, format='json')
+        
+        # Debug output to understand failures
+        if response.status_code != status.HTTP_201_CREATED:
+            print(f"Error response for create dependency: {response.status_code} - {response.data}")
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['notes'], 'Task 4 depends on Task 5')
+        self.assertTrue(response.data['active'])
+        
+        # Verify it's in the database
+        self.assertTrue(TaskDependency.objects.filter(id=response.data['id']).exists())
+    
+    def test_update_dependency(self):
+        """Test updating a dependency."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-dependency-detail', kwargs={'task_pk': self.task2.id, 'pk': self.dependency.id})
+        
+        data = {
+            'notes': 'Updated dependency notes',
+            'task': self.task2.id,  # Include task ID explicitly
+            'depends_on': self.task1.id  # Include depends_on ID explicitly
+        }
+        
+        response = self.client.patch(url, data, format='json')
+        
+        # Debug output to understand failures
+        if response.status_code != status.HTTP_200_OK:
+            print(f"Error response for update dependency: {response.status_code} - {response.data}")
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['notes'], 'Updated dependency notes')
+        
+        # Refresh from database and verify update
+        self.dependency.refresh_from_db()
+        self.assertEqual(self.dependency.notes, 'Updated dependency notes')
+    
+    def test_delete_dependency(self):
+        """Test deleting a dependency."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-dependency-detail', kwargs={'task_pk': self.task2.id, 'pk': self.dependency.id})
+        
+        response = self.client.delete(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        
+        # Verify it's removed from the database
+        self.assertFalse(TaskDependency.objects.filter(id=self.dependency.id).exists())
+    
+    def test_toggle_dependency(self):
+        """Test toggling a dependency's active status."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-dependency-toggle', kwargs={'task_pk': self.task2.id, 'pk': self.dependency.id})
+        
+        # Initially active
+        self.assertTrue(self.dependency.active)
+        
+        response = self.client.patch(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['active'])
+        
+        # Toggle back to active
+        response = self.client.patch(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['active'])
+    
+    def test_unauthorized_access(self):
+        """Test that unauthorized users cannot access dependencies."""
+        self.client.force_authenticate(user=self.user3)  # Use a user not associated with the task
+        url = reverse('task-dependency-list', kwargs={'task_pk': self.task2.id})
+        
+        response = self.client.get(url)
+        
+        # Should return an empty list, not 403 Forbidden (per the viewset implementation)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+    
+    def test_task_blockers_endpoint(self):
+        """Test the blockers endpoint that shows tasks blocking the current task."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-blockers', kwargs={'pk': self.task2.id})
+        
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], self.task1.id)
+    
+    def test_task_blocked_endpoint(self):
+        """Test the blocked endpoint that shows tasks blocked by the current task."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-blocked', kwargs={'pk': self.task1.id})
+        
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], self.task2.id) 

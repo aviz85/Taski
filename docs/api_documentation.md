@@ -829,6 +829,419 @@ No response body.
 - `401 Unauthorized`: Missing or invalid authentication token
 - `404 Not Found`: Task or checklist item not found
 
+### Task Dependencies
+
+Task dependencies help manage the workflow by specifying which tasks must be completed before others can start.
+
+#### List Dependencies for a Task
+
+Returns all dependencies for a specific task, where the authenticated user is either the owner or assigned to the task.
+
+```
+GET /api/tasks/{task_id}/dependencies/
+```
+
+##### Response (200 OK)
+
+```json
+[
+  {
+    "id": 1,
+    "task": 2,
+    "depends_on": 1,
+    "created_at": "2025-03-10T09:45:00Z",
+    "created_by": 1,
+    "notes": "Task 2 depends on Task 1",
+    "active": true,
+    "task_details": {
+      "id": 2,
+      "title": "Implement new feature",
+      "description": "Implement the login functionality",
+      "created_at": "2025-03-09T15:30:00Z",
+      "due_date": "2025-03-20T18:00:00Z",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "owner": 1,
+      "assigned_to": 2,
+      "tags": "feature,frontend,development",
+      "duration": 8.0
+    },
+    "depends_on_details": {
+      "id": 1,
+      "title": "Complete project documentation",
+      "description": "Write comprehensive documentation for the project",
+      "created_at": "2025-03-09T14:00:00Z",
+      "due_date": "2025-03-15T23:59:59Z",
+      "status": "TODO",
+      "priority": "HIGH",
+      "owner": 1,
+      "assigned_to": 1,
+      "tags": "documentation,urgent,project",
+      "duration": 4.5
+    },
+    "created_by_details": {
+      "id": 1,
+      "username": "example_user",
+      "email": "user@example.com"
+    }
+  }
+]
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+
+#### Add a Dependency to a Task
+
+```
+POST /api/tasks/{task_id}/dependencies/
+```
+
+##### Request Body
+
+```json
+{
+  "depends_on": 1,
+  "notes": "This task depends on the documentation being completed"
+}
+```
+
+Note that the `task` and `created_by` fields are automatically set by the API based on the URL and the authenticated user.
+
+##### Response (201 Created)
+
+```json
+{
+  "id": 2,
+  "task": 3,
+  "depends_on": 1,
+  "created_at": "2025-03-11T14:22:00Z",
+  "created_by": 1,
+  "notes": "This task depends on the documentation being completed",
+  "active": true,
+  "task_details": {
+    "id": 3,
+    "title": "Deploy to production",
+    "description": "Deploy the application to production servers",
+    "created_at": "2025-03-09T16:30:00Z",
+    "due_date": "2025-03-25T18:00:00Z",
+    "status": "TODO",
+    "priority": "HIGH",
+    "owner": 1,
+    "assigned_to": 1,
+    "tags": "deployment,production",
+    "duration": 2.0
+  },
+  "depends_on_details": {
+    "id": 1,
+    "title": "Complete project documentation",
+    "description": "Write comprehensive documentation for the project",
+    "created_at": "2025-03-09T14:00:00Z",
+    "due_date": "2025-03-15T23:59:59Z",
+    "status": "TODO",
+    "priority": "HIGH",
+    "owner": 1,
+    "assigned_to": 1,
+    "tags": "documentation,urgent,project",
+    "duration": 4.5
+  },
+  "created_by_details": {
+    "id": 1,
+    "username": "example_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+##### Possible Errors
+
+- `400 Bad Request`: Missing depends_on field or invalid data
+- `400 Bad Request`: Circular dependency detected
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User is not the owner or assignee of the task
+- `403 Forbidden`: User doesn't have permission to use the depends_on task
+- `404 Not Found`: Task not found
+
+#### Get a Specific Dependency
+
+```
+GET /api/tasks/{task_id}/dependencies/{id}/
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "depends_on": 1,
+  "created_at": "2025-03-10T09:45:00Z",
+  "created_by": 1,
+  "notes": "Task 2 depends on Task 1",
+  "active": true,
+  "task_details": {
+    "id": 2,
+    "title": "Implement new feature",
+    "description": "Implement the login functionality",
+    "created_at": "2025-03-09T15:30:00Z",
+    "due_date": "2025-03-20T18:00:00Z",
+    "status": "TODO",
+    "priority": "MEDIUM",
+    "owner": 1,
+    "assigned_to": 2,
+    "tags": "feature,frontend,development",
+    "duration": 8.0
+  },
+  "depends_on_details": {
+    "id": 1,
+    "title": "Complete project documentation",
+    "description": "Write comprehensive documentation for the project",
+    "created_at": "2025-03-09T14:00:00Z",
+    "due_date": "2025-03-15T23:59:59Z",
+    "status": "TODO",
+    "priority": "HIGH",
+    "owner": 1,
+    "assigned_to": 1,
+    "tags": "documentation,urgent,project",
+    "duration": 4.5
+  },
+  "created_by_details": {
+    "id": 1,
+    "username": "example_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or dependency not found
+
+#### Update a Dependency
+
+```
+PUT /api/tasks/{task_id}/dependencies/{id}/
+```
+
+##### Request Body
+
+```json
+{
+  "notes": "Updated dependency notes",
+  "active": false
+}
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "depends_on": 1,
+  "created_at": "2025-03-10T09:45:00Z",
+  "created_by": 1,
+  "notes": "Updated dependency notes",
+  "active": false,
+  "task_details": {
+    "id": 2,
+    "title": "Implement new feature",
+    "description": "Implement the login functionality",
+    "created_at": "2025-03-09T15:30:00Z",
+    "due_date": "2025-03-20T18:00:00Z",
+    "status": "TODO",
+    "priority": "MEDIUM",
+    "owner": 1,
+    "assigned_to": 2,
+    "tags": "feature,frontend,development",
+    "duration": 8.0
+  },
+  "depends_on_details": {
+    "id": 1,
+    "title": "Complete project documentation",
+    "description": "Write comprehensive documentation for the project",
+    "created_at": "2025-03-09T14:00:00Z",
+    "due_date": "2025-03-15T23:59:59Z",
+    "status": "TODO",
+    "priority": "HIGH",
+    "owner": 1,
+    "assigned_to": 1,
+    "tags": "documentation,urgent,project",
+    "duration": 4.5
+  },
+  "created_by_details": {
+    "id": 1,
+    "username": "example_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+##### Possible Errors
+
+- `400 Bad Request`: Invalid data
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or dependency not found
+
+#### Toggle a Dependency's Active Status
+
+```
+PATCH /api/tasks/{task_id}/dependencies/{id}/toggle/
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "depends_on": 1,
+  "created_at": "2025-03-10T09:45:00Z",
+  "created_by": 1,
+  "notes": "Task 2 depends on Task 1",
+  "active": false,  // Was toggled from true to false
+  "task_details": {
+    "id": 2,
+    "title": "Implement new feature",
+    "description": "Implement the login functionality",
+    "created_at": "2025-03-09T15:30:00Z",
+    "due_date": "2025-03-20T18:00:00Z",
+    "status": "TODO",
+    "priority": "MEDIUM",
+    "owner": 1,
+    "assigned_to": 2,
+    "tags": "feature,frontend,development",
+    "duration": 8.0
+  },
+  "depends_on_details": {
+    "id": 1,
+    "title": "Complete project documentation",
+    "description": "Write comprehensive documentation for the project",
+    "created_at": "2025-03-09T14:00:00Z",
+    "due_date": "2025-03-15T23:59:59Z",
+    "status": "TODO",
+    "priority": "HIGH",
+    "owner": 1,
+    "assigned_to": 1,
+    "tags": "documentation,urgent,project",
+    "duration": 4.5
+  },
+  "created_by_details": {
+    "id": 1,
+    "username": "example_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or dependency not found
+
+#### Delete a Dependency
+
+```
+DELETE /api/tasks/{task_id}/dependencies/{id}/
+```
+
+##### Response (204 No Content)
+
+No response body.
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or dependency not found
+
+#### Get Tasks Blocking a Task
+
+Returns all tasks that are blocking the specified task (tasks this task depends on).
+
+```
+GET /api/tasks/{id}/blockers/
+```
+
+##### Response (200 OK)
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Complete project documentation",
+    "description": "Write comprehensive documentation for the project",
+    "created_at": "2025-03-09T14:00:00Z",
+    "due_date": "2025-03-15T23:59:59Z",
+    "status": "TODO",
+    "priority": "HIGH",
+    "owner": 1,
+    "assigned_to": 1,
+    "tags": "documentation,urgent,project",
+    "duration": 4.5,
+    "owner_details": {
+      "id": 1,
+      "username": "example_user",
+      "email": "user@example.com"
+    },
+    "assigned_to_details": {
+      "id": 1,
+      "username": "example_user",
+      "email": "user@example.com"
+    }
+  }
+]
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task not found
+
+#### Get Tasks Blocked by a Task
+
+Returns all tasks that are blocked by the specified task (tasks that depend on this task).
+
+```
+GET /api/tasks/{id}/blocked/
+```
+
+##### Response (200 OK)
+
+```json
+[
+  {
+    "id": 2,
+    "title": "Implement new feature",
+    "description": "Implement the login functionality",
+    "created_at": "2025-03-09T15:30:00Z",
+    "due_date": "2025-03-20T18:00:00Z",
+    "status": "TODO",
+    "priority": "MEDIUM",
+    "owner": 1,
+    "assigned_to": 2,
+    "tags": "feature,frontend,development",
+    "duration": 8.0,
+    "owner_details": {
+      "id": 1,
+      "username": "example_user",
+      "email": "user@example.com"
+    },
+    "assigned_to_details": {
+      "id": 2,
+      "username": "another_user",
+      "email": "another@example.com"
+    }
+  }
+]
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task not found
+
 ## Status Codes
 
 | Status Code | Description                                             |
@@ -861,6 +1274,8 @@ No response body.
 | duration            | float    | Estimated time to complete (in hours)      |
 | checklist_items     | array    | List of checklist items for the task       |
 | checklist_completion| integer  | Percentage of completed checklist items (0-100) |
+| blocked_by_count    | integer  | Number of tasks this task depends on       |
+| blocks_count        | integer  | Number of tasks that depend on this task   |
 
 ### User
 
@@ -881,6 +1296,18 @@ No response body.
 | position     | integer  | Position for ordering within the checklist |
 | created_at   | datetime | When the item was created (auto-generated) |
 | updated_at   | datetime | When the item was last updated             |
+
+### TaskDependency
+
+| Field        | Type     | Description                                |
+|--------------|----------|--------------------------------------------|
+| id           | integer  | Unique identifier                          |
+| task         | integer  | ID of the task that depends on another     |
+| depends_on   | integer  | ID of the task that must be completed first|
+| created_by   | integer  | ID of the user who created the dependency  |
+| notes        | string   | Optional notes about the dependency        |
+| active       | boolean  | Whether the dependency is active or not    |
+| created_at   | datetime | When the dependency was created            |
 
 ## Examples
 

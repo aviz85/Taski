@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested import routers
-from tasks.views import TaskViewSet, TaskCommentViewSet, ChecklistItemViewSet
+from tasks.views import TaskViewSet, TaskCommentViewSet, ChecklistItemViewSet, TaskDependencyViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from authentication.views import register, get_user
 from django.conf import settings
@@ -35,6 +35,9 @@ task_router.register(r'comments', TaskCommentViewSet, basename='task-comment')
 
 # Nested router for task checklist items
 task_router.register(r'checklist', ChecklistItemViewSet, basename='task-checklist')
+
+# Nested router for task dependencies
+task_router.register(r'dependencies', TaskDependencyViewSet, basename='task-dependency')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

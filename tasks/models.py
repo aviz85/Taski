@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
 class Task(models.Model):
     STATUS_CHOICES = [
@@ -77,3 +78,36 @@ class ChecklistItem(models.Model):
     def __str__(self):
         status = "✓" if self.is_completed else "○"
         return f"{status} {self.text} ({self.task.title})"
+
+
+class TaskDependency(models.Model):
+    """
+    Model for task dependencies.
+    
+    A dependency represents a relationship where 'task' cannot be started or completed
+    until 'depends_on' task is completed.
+    """
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='dependencies')
+    depends_on = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='dependent_tasks')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_dependencies')
+    notes = models.TextField(blank=True, null=True, help_text="Optional notes about this dependency")
+    active = models.BooleanField(default=True, help_text="Whether this dependency is active")
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = "Task Dependencies"
+        # Ensure we don't have duplicate dependencies
+        unique_together = ['task', 'depends_on']
+        
+    def __str__(self):
+        return f"{self.task.title} → depends on → {self.depends_on.title}"
+    
+    def clean(self):
+        """Validate that a task cannot depend on itself."""
+        if self.task == self.depends_on:
+            raise ValidationError("A task cannot depend on itself")
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)

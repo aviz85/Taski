@@ -673,4 +673,249 @@
 
 .tab-content.active {
     display: block;
+}
+
+/* Add styles for task dependencies */
+.task-dependency-badge {
+    background-color: var(--info-color-light);
+    color: var(--info-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--info-color-light);
+    margin: 0.2rem 0;
+}
+
+.task-dependency-badge:hover {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.task-dependency-badge.blocked-by {
+    background-color: var(--warning-color-light);
+    color: var(--warning-color-dark);
+    border-color: var(--warning-color-light);
+}
+
+.task-dependency-badge.blocked-by:hover {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.task-dependency-badge.blocks {
+    background-color: var(--success-color-light);
+    color: var(--success-color-dark);
+    border-color: var(--success-color-light);
+}
+
+.task-dependency-badge.blocks:hover {
+    background-color: var(--success-color);
+    color: white;
+}
+
+/* Dependencies Tab Content */
+.dependencies-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.dependencies-section h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    color: var(--text-color-dark);
+}
+
+.dependencies-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.dependency-form-container {
+    background-color: var(--bg-light);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.dependency-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.dependency-form select,
+.dependency-form textarea,
+.dependency-form button {
+    width: 100%;
+}
+
+/* Dependency Item */
+.dependency-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background-color: var(--bg-light);
+    border-left: 4px solid var(--info-color);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.dependency-item.inactive {
+    border-left-color: var(--text-color-light);
+    opacity: 0.7;
+}
+
+.dependency-info {
+    flex: 1;
+}
+
+.dependency-title {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.dependency-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-color);
+    margin-bottom: 0.25rem;
+}
+
+.dependency-status-badge {
+    padding: 0.1rem 0.5rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    background-color: var(--bg-light);
+}
+
+.dependency-notes {
+    font-size: 0.9rem;
+    color: var(--text-color);
+    margin-top: 0.25rem;
+    background-color: rgba(0, 0, 0, 0.03);
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.dependency-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.dependency-actions button {
+    padding: 0.3rem;
+    border-radius: 4px;
+    border: none;
+    background-color: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.dependency-actions button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.toggle-dependency {
+    color: var(--primary-color) !important;
+}
+
+.delete-dependency {
+    color: var(--danger-color) !important;
+}
+
+/* Blocking/Blocked Tasks */
+.blocking-tasks-container,
+.blocked-tasks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.blocking-task,
+.blocked-task {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-light);
+    border-radius: 6px;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.blocking-task {
+    border-left: 4px solid var(--warning-color);
+}
+
+.blocked-task {
+    border-left: 4px solid var(--success-color);
+}
+
+.blocking-task:hover,
+.blocked-task:hover {
+    background-color: var(--bg-hover);
+}
+
+.blocking-task-info,
+.blocked-task-info {
+    flex: 1;
+}
+
+.blocking-task-title,
+.blocked-task-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.blocking-task-icon,
+.blocked-task-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+}
+
+.blocking-task-icon {
+    background-color: var(--warning-color-light);
+    color: var(--warning-color-dark);
+}
+
+.blocked-task-icon {
+    background-color: var(--success-color-light);
+    color: var(--success-color-dark);
+}
+
+.blocking-task-meta,
+.blocked-task-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-color);
+}
+
+.no-items {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-color-light);
+    background-color: var(--bg-lightest);
+    border-radius: 8px;
+    font-size: 0.9rem;
 } 

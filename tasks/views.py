@@ -6,8 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
-from .models import Task, TaskComment, ChecklistItem
-from .serializers import TaskSerializer, TaskCommentSerializer, ChecklistItemSerializer
+from .models import Task, TaskComment, ChecklistItem, TaskDependency
+from .serializers import TaskSerializer, TaskCommentSerializer, ChecklistItemSerializer, TaskDependencySerializer
 import logging
 
 # Set up logger
@@ -38,6 +38,36 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+    
+    @action(detail=True, methods=['get'])
+    def blockers(self, request, pk=None):
+        """
+        Get all tasks that are blocking the specified task (tasks this task depends on).
+        """
+        task = self.get_object()
+        # Get all active dependencies
+        dependencies = task.dependencies.filter(active=True)
+        # Extract the tasks that this task depends on
+        blocking_tasks = [dep.depends_on for dep in dependencies]
+        
+        # Serialize these tasks
+        serializer = self.get_serializer(blocking_tasks, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def blocked(self, request, pk=None):
+        """
+        Get all tasks that are blocked by the specified task (tasks that depend on this task).
+        """
+        task = self.get_object()
+        # Get all active dependencies where this task is the one that others depend on
+        dependencies = task.dependent_tasks.filter(active=True)
+        # Extract the tasks that depend on this task
+        blocked_tasks = [dep.task for dep in dependencies]
+        
+        # Serialize these tasks
+        serializer = self.get_serializer(blocked_tasks, many=True)
+        return Response(serializer.data)
 
 
 class TaskCommentViewSet(viewsets.ModelViewSet):
@@ -185,3 +215,59 @@ class ChecklistItemViewSet(viewsets.ModelViewSet):
         return Response(
             self.get_serializer(ChecklistItem.objects.filter(task=task), many=True).data
         )
+
+
+class TaskDependencyViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing task dependencies.
+    """
+    serializer_class = TaskDependencySerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """
+        Return task dependencies for the specified task where the user is either
+        the task owner or assigned to the task.
+        """
+        task_id = self.kwargs.get('task_pk')
+        task = get_object_or_404(Task, pk=task_id)
+        
+        # Check if user is associated with the task
+        if not (task.owner == self.request.user or task.assigned_to == self.request.user):
+            return TaskDependency.objects.none()
+            
+        return TaskDependency.objects.filter(task=task)
+    
+    def perform_create(self, serializer):
+        """
+        Create a new task dependency, automatically setting the task and created_by fields.
+        """
+        task_id = self.kwargs.get('task_pk')
+        task = get_object_or_404(Task, pk=task_id)
+        
+        # Check if user is associated with the task
+        if not (task.owner == self.request.user or task.assigned_to == self.request.user):
+            raise PermissionDenied("You don't have permission to add dependencies to this task")
+        
+        # Validate that the depends_on task is accessible to the user
+        depends_on_id = serializer.validated_data.get('depends_on').id
+        depends_on_task = get_object_or_404(Task, pk=depends_on_id)
+        
+        if not (depends_on_task.owner == self.request.user or depends_on_task.assigned_to == self.request.user):
+            raise PermissionDenied("You don't have permission to use this task as a dependency")
+            
+        serializer.save(task=task, created_by=self.request.user)
+    
+    @action(detail=True, methods=['patch'])
+    def toggle(self, request, task_pk=None, pk=None):
+        """
+        Toggle the active status of a dependency.
+        """
+        dependency = self.get_object()
+        
+        # Toggle the active status
+        dependency.active = not dependency.active
+        dependency.save()
+        
+        serializer = self.get_serializer(dependency)
+        return Response(serializer.data)

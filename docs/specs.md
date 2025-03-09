@@ -42,6 +42,14 @@
 - created_at (datetime)
 - updated_at (datetime)
 
+### TaskDependency
+- task (FK -> Task) - המשימה שצריכה להמתין
+- depends_on (FK -> Task) - המשימה שצריכה להסתיים קודם
+- created_at (datetime)
+- created_by (FK -> User) - המשתמש שיצר את התלות
+- notes (text) - הערות אופציונליות על התלות
+- active (boolean) - האם התלות פעילה (מאפשר להשבית תלות באופן זמני)
+
 ## Endpoints
 ### Authentication
 ```
@@ -78,6 +86,17 @@ PUT /api/tasks/{task_id}/checklist/{id}/
 PATCH /api/tasks/{task_id}/checklist/{id}/complete/
 PATCH /api/tasks/{task_id}/checklist/{id}/incomplete/
 DELETE /api/tasks/{task_id}/checklist/{id}/
+```
+
+### Task Dependencies
+```
+GET /api/tasks/{task_id}/dependencies/
+POST /api/tasks/{task_id}/dependencies/
+GET /api/tasks/{task_id}/dependencies/{id}/
+PUT /api/tasks/{task_id}/dependencies/{id}/
+DELETE /api/tasks/{task_id}/dependencies/{id}/
+GET /api/tasks/{task_id}/blockers/
+PATCH /api/tasks/{task_id}/dependencies/{id}/toggle/
 ```
 
 ## אבטחה

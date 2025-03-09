@@ -134,6 +134,9 @@
                         <button type="button" class="tab-btn" data-tab="comments">
                             <i class="far fa-comments"></i> Comments
                         </button>
+                        <button type="button" class="tab-btn" data-tab="dependencies">
+                            <i class="fas fa-link"></i> Dependencies
+                        </button>
                     </div>
                     
                     <!-- Task Details Tab (Initially Visible) -->
@@ -251,6 +254,53 @@
                                     <button type="submit" class="btn btn-primary">Add Comment</button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Dependencies Tab -->
+                    <div id="dependencies-tab" class="tab-content">
+                        <div class="dependencies-section">
+                            <div class="dependency-form-container">
+                                <h3><i class="fas fa-plus-circle"></i> Add Dependency</h3>
+                                <form id="dependency-form" class="dependency-form">
+                                    <div class="form-group">
+                                        <label for="dependency-task">This task depends on:</label>
+                                        <select id="dependency-task" required>
+                                            <option value="">Select a task</option>
+                                            <!-- Tasks will be populated by JS -->
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dependency-notes">Notes (optional):</label>
+                                        <textarea id="dependency-notes" rows="2" placeholder="Add notes about this dependency..."></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Add Dependency</button>
+                                </form>
+                            </div>
+                            
+                            <div class="dependencies-container">
+                                <h3><i class="fas fa-lock"></i> Dependencies</h3>
+                                <div id="dependencies-list">
+                                    <!-- Dependencies will be populated by JS -->
+                                    <div class="no-items">No dependencies added yet</div>
+                                </div>
+                            </div>
+                            
+                            <div class="blocking-tasks-container">
+                                <h3><i class="fas fa-shield-alt"></i> Blocking Tasks</h3>
+                                <div id="blocking-tasks-list">
+                                    <!-- Blocking tasks will be populated by JS -->
+                                    <div class="no-items">No blocking tasks</div>
+                                </div>
+                            </div>
+                            
+                            <div class="blocked-tasks-container">
+                                <h3><i class="fas fa-ban"></i> Tasks Blocked by This Task</h3>
+                                <div id="blocked-tasks-list">
+                                    <!-- Blocked tasks will be populated by JS -->
+                                    <div class="no-items">No tasks are blocked by this task</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

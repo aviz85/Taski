@@ -1,7 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
-from tasks.models import Task, ChecklistItem
+from django.core.exceptions import ValidationError
+from tasks.models import Task, ChecklistItem, TaskDependency
 import datetime
 
 class TaskModelTest(TestCase):
@@ -204,4 +205,131 @@ class ChecklistItemModelTest(TestCase):
         item_refreshed.save()
         
         item_refreshed_again = ChecklistItem.objects.get(id=self.item1.id)
-        self.assertFalse(item_refreshed_again.is_completed) 
+        self.assertFalse(item_refreshed_again.is_completed)
+
+class TaskDependencyModelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users for testing
+        cls.user1 = User.objects.create_user(username='testuser1', password='12345', email='user1@example.com')
+        cls.user2 = User.objects.create_user(username='testuser2', password='12345', email='user2@example.com')
+        
+        # Create tasks for testing
+        cls.task1 = Task.objects.create(
+            title='Task 1',
+            description='This is the first task',
+            due_date=timezone.now() + datetime.timedelta(days=7),
+            status='TODO',
+            priority='MEDIUM',
+            owner=cls.user1,
+            assigned_to=cls.user2
+        )
+        
+        cls.task2 = Task.objects.create(
+            title='Task 2',
+            description='This is the second task',
+            due_date=timezone.now() + datetime.timedelta(days=10),
+            status='TODO',
+            priority='HIGH',
+            owner=cls.user1,
+            assigned_to=cls.user2
+        )
+        
+        cls.task3 = Task.objects.create(
+            title='Task 3',
+            description='This is the third task',
+            due_date=timezone.now() + datetime.timedelta(days=14),
+            status='TODO',
+            priority='LOW',
+            owner=cls.user1,
+            assigned_to=cls.user2
+        )
+        
+        # Create dependencies
+        cls.dependency1 = TaskDependency.objects.create(
+            task=cls.task2,
+            depends_on=cls.task1,
+            created_by=cls.user1,
+            notes='Task 2 depends on Task 1'
+        )
+    
+    def test_dependency_creation(self):
+        """Test creating a task dependency."""
+        dependency = TaskDependency.objects.get(id=self.dependency1.id)
+        
+        self.assertEqual(dependency.task, self.task2)
+        self.assertEqual(dependency.depends_on, self.task1)
+        self.assertEqual(dependency.created_by, self.user1)
+        self.assertEqual(dependency.notes, 'Task 2 depends on Task 1')
+        self.assertTrue(dependency.active)
+    
+    def test_dependency_string_representation(self):
+        """Test the string representation of a task dependency."""
+        dependency = TaskDependency.objects.get(id=self.dependency1.id)
+        expected_string = f"{self.task2.title} → depends on → {self.task1.title}"
+        
+        self.assertEqual(str(dependency), expected_string)
+    
+    def test_dependency_ordering(self):
+        """Test that dependencies are ordered by created_at in descending order."""
+        # Create another dependency
+        dependency2 = TaskDependency.objects.create(
+            task=self.task3,
+            depends_on=self.task2,
+            created_by=self.user1,
+            notes='Task 3 depends on Task 2'
+        )
+        
+        dependencies = TaskDependency.objects.all()
+        self.assertEqual(dependencies[0], dependency2)  # newer dependency should be first
+        self.assertEqual(dependencies[1], self.dependency1)
+    
+    def test_dependency_relationships(self):
+        """Test the relationship between tasks and their dependencies."""
+        # Task2 depends on Task1
+        self.assertEqual(self.task2.dependencies.first(), self.dependency1)
+        
+        # Task1 is depended on by Task2
+        self.assertEqual(self.task1.dependent_tasks.first(), self.dependency1)
+    
+    def test_cannot_depend_on_self(self):
+        """Test that a task cannot depend on itself."""
+        with self.assertRaises(ValidationError):
+            TaskDependency.objects.create(
+                task=self.task1,
+                depends_on=self.task1,
+                created_by=self.user1
+            )
+    
+    def test_toggle_active_status(self):
+        """Test toggling the active status of a dependency."""
+        dependency = TaskDependency.objects.get(id=self.dependency1.id)
+        self.assertTrue(dependency.active)  # Initially active
+        
+        # Toggle to inactive
+        dependency.active = False
+        dependency.save()
+        
+        # Refetch from database and check
+        refreshed_dependency = TaskDependency.objects.get(id=self.dependency1.id)
+        self.assertFalse(refreshed_dependency.active)
+        
+        # Toggle back to active
+        refreshed_dependency.active = True
+        refreshed_dependency.save()
+        
+        # Refetch and check again
+        refreshed_again = TaskDependency.objects.get(id=self.dependency1.id)
+        self.assertTrue(refreshed_again.active)
+    
+    def test_unique_together_constraint(self):
+        """Test that the same dependency can't be created twice."""
+        from django.db import IntegrityError
+        
+        with self.assertRaises(IntegrityError):
+            TaskDependency.objects.create(
+                task=self.task2,
+                depends_on=self.task1,
+                created_by=self.user1,
+                notes='Duplicate dependency'
+            ) 

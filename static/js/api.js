@@ -592,6 +592,122 @@ const API = {
             console.error(`Delete comment ${commentId} error:`, error);
             throw error;
         }
+    },
+    
+    /**
+     * Get task dependencies
+     */
+    async getTaskDependencies(taskId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/dependencies/`);
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to fetch task dependencies');
+            }
+        } catch (error) {
+            console.error(`Get dependencies for task ${taskId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Create a new task dependency
+     */
+    async createTaskDependency(taskId, dependencyData) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/dependencies/`, {
+                method: 'POST',
+                body: JSON.stringify(dependencyData)
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to create task dependency');
+            }
+        } catch (error) {
+            console.error('Create task dependency error:', error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Delete a task dependency
+     */
+    async deleteTaskDependency(taskId, dependencyId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/dependencies/${dependencyId}/`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                return true;
+            } else {
+                throw new Error('Failed to delete task dependency');
+            }
+        } catch (error) {
+            console.error(`Delete dependency ${dependencyId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Toggle a task dependency's active status
+     */
+    async toggleTaskDependency(taskId, dependencyId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/dependencies/${dependencyId}/toggle/`, {
+                method: 'PATCH'
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to toggle task dependency');
+            }
+        } catch (error) {
+            console.error(`Toggle dependency ${dependencyId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Get tasks that are blocking a task
+     */
+    async getTaskBlockers(taskId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/blockers/`);
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to fetch task blockers');
+            }
+        } catch (error) {
+            console.error(`Get blockers for task ${taskId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Get tasks that are blocked by a task
+     */
+    async getTaskBlocked(taskId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/blocked/`);
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to fetch tasks blocked by this task');
+            }
+        } catch (error) {
+            console.error(`Get tasks blocked by task ${taskId} error:`, error);
+            throw error;
+        }
     }
 };
 

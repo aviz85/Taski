@@ -31,7 +31,12 @@ const Tasks = {
         checklistItems: document.getElementById('checklist-items'),
         checklistForm: document.getElementById('checklist-form'),
         checklistProgressValue: document.getElementById('checklist-progress-value'),
-        checklistProgressText: document.getElementById('checklist-progress-text')
+        checklistProgressText: document.getElementById('checklist-progress-text'),
+        dependenciesTab: document.getElementById('dependencies-tab'),
+        dependenciesList: document.getElementById('dependencies-list'),
+        blockingTasksList: document.getElementById('blocking-tasks-list'),
+        blockedTasksList: document.getElementById('blocked-tasks-list'),
+        dependencyForm: document.getElementById('dependency-form')
     },
     
     // Current filters
@@ -49,6 +54,9 @@ const Tasks = {
     editingCommentId: null,
     checklistItems: [],
     editingChecklistItemId: null,
+    dependencies: [],
+    blockingTasks: [],
+    blockedTasks: [],
     
     // Current users
     users: [],
@@ -65,24 +73,25 @@ const Tasks = {
      * Add event listeners for task-related elements
      */
     addEventListeners() {
-        // Create new task button
-        this.elements.createTaskBtn.addEventListener('click', () => this.showTaskModal());
-        
         // Task form submission
-        this.elements.taskForm.addEventListener('submit', (e) => this.handleTaskSubmit(e));
+        this.elements.taskForm.addEventListener('submit', this.handleTaskSubmit.bind(this));
         
-        // Delete task button
-        this.elements.deleteTaskBtn.addEventListener('click', () => this.showDeleteConfirmation());
-        
-        // Close modal buttons
-        document.querySelectorAll('.close-modal').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.elements.taskModal.classList.add('hidden');
-                this.elements.confirmModal.classList.add('hidden');
-            });
+        // Task modal close
+        this.elements.taskModal.querySelector('.close-modal').addEventListener('click', () => {
+            this.elements.taskModal.classList.add('hidden');
         });
         
-        // Confirm modal actions
+        // Create new task button
+        this.elements.createTaskBtn.addEventListener('click', () => {
+            this.showTaskModal();
+        });
+        
+        // Delete task button
+        this.elements.deleteTaskBtn.addEventListener('click', () => {
+            this.showDeleteConfirmation();
+        });
+        
+        // Confirm modal buttons
         this.elements.confirmCancel.addEventListener('click', () => {
             this.elements.confirmModal.classList.add('hidden');
         });
@@ -91,27 +100,42 @@ const Tasks = {
             this.confirmDelete();
         });
         
-        // Filter listeners
-        this.elements.searchBtn.addEventListener('click', () => this.applyFilters());
-        this.elements.taskSearch.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.applyFilters();
-            }
+        // Filter and search
+        this.elements.statusFilter.addEventListener('change', () => {
+            this.filters.status = this.elements.statusFilter.value;
+            this.applyFilters();
         });
         
-        this.elements.statusFilter.addEventListener('change', () => this.applyFilters());
-        this.elements.priorityFilter.addEventListener('change', () => this.applyFilters());
-        this.elements.tagFilter.addEventListener('keypress', (e) => {
+        this.elements.priorityFilter.addEventListener('change', () => {
+            this.filters.priority = this.elements.priorityFilter.value;
+            this.applyFilters();
+        });
+        
+        this.elements.tagFilter.addEventListener('input', () => {
+            this.filters.tag = this.elements.tagFilter.value;
+            this.applyFilters();
+        });
+        
+        this.elements.searchBtn.addEventListener('click', () => {
+            this.filters.search = this.elements.taskSearch.value;
+            this.applyFilters();
+        });
+        
+        this.elements.taskSearch.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
+                this.filters.search = this.elements.taskSearch.value;
                 this.applyFilters();
             }
         });
         
         // Comment form submission
-        this.elements.commentForm.addEventListener('submit', (e) => this.handleCommentSubmit(e));
+        this.elements.commentForm.addEventListener('submit', this.handleCommentSubmit.bind(this));
         
         // Checklist form submission
-        this.elements.checklistForm.addEventListener('submit', (e) => this.handleChecklistSubmit(e));
+        this.elements.checklistForm.addEventListener('submit', this.handleChecklistSubmit.bind(this));
+        
+        // Dependency form submission
+        this.elements.dependencyForm.addEventListener('submit', this.handleDependencySubmit.bind(this));
     },
     
     /**
@@ -220,7 +244,7 @@ const Tasks = {
             }
         }
         
-        // Create badges container for duration and checklist
+        // Create badges container for duration, checklist, and dependencies
         let badgesHtml = '';
         
         // Duration badge if present
@@ -238,6 +262,23 @@ const Tasks = {
             badgesHtml += `
                 <div class="task-checklist-badge" data-tab="checklist">
                     <i class="fas fa-tasks"></i> ${completionPercentage}% complete
+                </div>
+            `;
+        }
+        
+        // Dependencies badges if present
+        if (task.blocked_by_count > 0) {
+            badgesHtml += `
+                <div class="task-dependency-badge blocked-by" data-tab="dependencies">
+                    <i class="fas fa-lock"></i> Blocked by ${task.blocked_by_count} task${task.blocked_by_count !== 1 ? 's' : ''}
+                </div>
+            `;
+        }
+        
+        if (task.blocks_count > 0) {
+            badgesHtml += `
+                <div class="task-dependency-badge blocks" data-tab="dependencies">
+                    <i class="fas fa-key"></i> Blocks ${task.blocks_count} task${task.blocks_count !== 1 ? 's' : ''}
                 </div>
             `;
         }
@@ -286,10 +327,21 @@ const Tasks = {
             });
         }
         
+        // Add click event for dependency badges
+        const dependencyBadges = taskCard.querySelectorAll('.task-dependency-badge');
+        dependencyBadges.forEach(badge => {
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent card click
+                this.showTaskModal(task, 'dependencies');
+            });
+        });
+        
         // Make the entire card clickable for convenience
         taskCard.addEventListener('click', (e) => {
-            // Don't trigger if clicked on the edit button or checklist badge
-            if (!e.target.closest('.edit-task') && !e.target.closest('.task-checklist-badge')) {
+            // Don't trigger if clicked on the edit button or badges
+            if (!e.target.closest('.edit-task') && 
+                !e.target.closest('.task-checklist-badge') &&
+                !e.target.closest('.task-dependency-badge')) {
                 this.showTaskModal(task);
             }
         });
@@ -362,9 +414,13 @@ const Tasks = {
             document.getElementById('task-tags').value = task.tags || '';
             document.getElementById('task-assigned-to').value = task.assigned_to;
             
-            // Load comments and checklist data
+            // Load comments, checklist, and dependencies
             this.loadComments(task.id);
             this.loadChecklist(task.id);
+            this.loadDependencies(task.id);
+            
+            // Populate dependency task dropdown with available tasks
+            this.populateDependencyTaskDropdown(task.id);
             
             // Make all tabs visible for existing tasks
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -385,7 +441,7 @@ const Tasks = {
             tomorrow.setDate(tomorrow.getDate() + 1);
             document.getElementById('task-due-date').value = tomorrow.toISOString().slice(0, 16);
             
-            // Hide checklist and comments tabs for new tasks
+            // Hide checklist, comments, and dependencies tabs for new tasks
             document.querySelectorAll('.tab-btn:not([data-tab="details"])').forEach(btn => {
                 btn.style.display = 'none';
             });
@@ -399,6 +455,26 @@ const Tasks = {
         
         // Show modal
         this.elements.taskModal.classList.remove('hidden');
+    },
+    
+    /**
+     * Populate dependency task dropdown with available tasks
+     */
+    populateDependencyTaskDropdown(currentTaskId) {
+        const dependencyTaskSelect = document.getElementById('dependency-task');
+        
+        // Clear existing options
+        dependencyTaskSelect.innerHTML = '<option value="">Select a task</option>';
+        
+        // Add options for all tasks except the current one
+        this.tasks.forEach(task => {
+            if (task.id !== parseInt(currentTaskId)) {
+                const option = document.createElement('option');
+                option.value = task.id;
+                option.textContent = task.title;
+                dependencyTaskSelect.appendChild(option);
+            }
+        });
     },
     
     /**
@@ -1223,6 +1299,312 @@ const Tasks = {
         
         this.elements.checklistProgressValue.style.width = `${percentage}%`;
         this.elements.checklistProgressText.textContent = `${percentage}%`;
+    },
+    
+    /**
+     * Load dependencies for a task
+     */
+    async loadDependencies(taskId) {
+        try {
+            // Clear current dependencies
+            this.dependencies = [];
+            this.blockingTasks = [];
+            this.blockedTasks = [];
+            
+            // Get dependencies
+            this.dependencies = await API.getTaskDependencies(taskId);
+            
+            // Get blocking tasks (tasks this task depends on)
+            this.blockingTasks = await API.getTaskBlockers(taskId);
+            
+            // Get blocked tasks (tasks that depend on this task)
+            this.blockedTasks = await API.getTaskBlocked(taskId);
+            
+            // Render dependencies
+            this.renderDependencies();
+            this.renderBlockingTasks();
+            this.renderBlockedTasks();
+        } catch (error) {
+            console.error('Error loading dependencies:', error);
+            this.showError('Failed to load dependencies. Please try again.');
+        }
+    },
+    
+    /**
+     * Render dependencies list
+     */
+    renderDependencies() {
+        const dependenciesList = this.elements.dependenciesList;
+        
+        // Clear current list
+        dependenciesList.innerHTML = '';
+        
+        if (this.dependencies.length === 0) {
+            dependenciesList.innerHTML = '<div class="no-items">No dependencies added yet</div>';
+            return;
+        }
+        
+        // Render each dependency
+        this.dependencies.forEach(dependency => {
+            const dependencyElement = this.createDependencyElement(dependency);
+            dependenciesList.appendChild(dependencyElement);
+        });
+    },
+    
+    /**
+     * Create a dependency element
+     */
+    createDependencyElement(dependency) {
+        const element = document.createElement('div');
+        element.className = `dependency-item ${dependency.active ? 'active' : 'inactive'}`;
+        element.dataset.id = dependency.id;
+        
+        element.innerHTML = `
+            <div class="dependency-info">
+                <div class="dependency-title">
+                    <span class="dependency-status">
+                        <i class="fas ${dependency.active ? 'fa-lock' : 'fa-lock-open'}"></i>
+                    </span>
+                    <span>This task depends on: <strong>${dependency.depends_on_details.title}</strong></span>
+                </div>
+                <div class="dependency-meta">
+                    <span class="dependency-status-badge status-${dependency.depends_on_details.status}">
+                        ${this.formatStatus(dependency.depends_on_details.status)}
+                    </span>
+                    <span class="dependency-date">
+                        Created: ${new Date(dependency.created_at).toLocaleDateString()}
+                    </span>
+                </div>
+                ${dependency.notes ? `<div class="dependency-notes">${dependency.notes}</div>` : ''}
+            </div>
+            <div class="dependency-actions">
+                <button class="btn btn-sm toggle-dependency" title="${dependency.active ? 'Deactivate' : 'Activate'} dependency">
+                    <i class="fas ${dependency.active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
+                </button>
+                <button class="btn btn-sm delete-dependency" title="Delete dependency">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        // Add event listeners
+        element.querySelector('.toggle-dependency').addEventListener('click', () => {
+            this.toggleDependency(dependency.id);
+        });
+        
+        element.querySelector('.delete-dependency').addEventListener('click', () => {
+            this.deleteDependency(dependency.id);
+        });
+        
+        return element;
+    },
+    
+    /**
+     * Render blocking tasks list
+     */
+    renderBlockingTasks() {
+        const blockingTasksList = this.elements.blockingTasksList;
+        
+        // Clear current list
+        blockingTasksList.innerHTML = '';
+        
+        if (this.blockingTasks.length === 0) {
+            blockingTasksList.innerHTML = '<div class="no-items">No blocking tasks</div>';
+            return;
+        }
+        
+        // Render each blocking task
+        this.blockingTasks.forEach(task => {
+            const element = document.createElement('div');
+            element.className = `blocking-task status-${task.status}`;
+            element.dataset.id = task.id;
+            
+            element.innerHTML = `
+                <div class="blocking-task-info">
+                    <div class="blocking-task-title">
+                        <span class="blocking-task-icon">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <span><strong>${task.title}</strong></span>
+                    </div>
+                    <div class="blocking-task-meta">
+                        <span class="blocking-task-status status-${task.status}">
+                            ${this.formatStatus(task.status)}
+                        </span>
+                        <span class="blocking-task-assigned">
+                            Assigned to: ${task.assigned_to_details.username}
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            // Add click event to view the blocking task
+            element.addEventListener('click', () => {
+                // Close current modal
+                this.elements.taskModal.classList.add('hidden');
+                
+                // Show the blocking task
+                const blockingTask = this.tasks.find(t => t.id === task.id);
+                if (blockingTask) {
+                    this.showTaskModal(blockingTask);
+                }
+            });
+            
+            blockingTasksList.appendChild(element);
+        });
+    },
+    
+    /**
+     * Render blocked tasks list
+     */
+    renderBlockedTasks() {
+        const blockedTasksList = this.elements.blockedTasksList;
+        
+        // Clear current list
+        blockedTasksList.innerHTML = '';
+        
+        if (this.blockedTasks.length === 0) {
+            blockedTasksList.innerHTML = '<div class="no-items">No tasks are blocked by this task</div>';
+            return;
+        }
+        
+        // Render each blocked task
+        this.blockedTasks.forEach(task => {
+            const element = document.createElement('div');
+            element.className = `blocked-task status-${task.status}`;
+            element.dataset.id = task.id;
+            
+            element.innerHTML = `
+                <div class="blocked-task-info">
+                    <div class="blocked-task-title">
+                        <span class="blocked-task-icon">
+                            <i class="fas fa-key"></i>
+                        </span>
+                        <span><strong>${task.title}</strong></span>
+                    </div>
+                    <div class="blocked-task-meta">
+                        <span class="blocked-task-status status-${task.status}">
+                            ${this.formatStatus(task.status)}
+                        </span>
+                        <span class="blocked-task-assigned">
+                            Assigned to: ${task.assigned_to_details.username}
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            // Add click event to view the blocked task
+            element.addEventListener('click', () => {
+                // Close current modal
+                this.elements.taskModal.classList.add('hidden');
+                
+                // Show the blocked task
+                const blockedTask = this.tasks.find(t => t.id === task.id);
+                if (blockedTask) {
+                    this.showTaskModal(blockedTask);
+                }
+            });
+            
+            blockedTasksList.appendChild(element);
+        });
+    },
+    
+    /**
+     * Handle dependency form submission
+     */
+    async handleDependencySubmit(event) {
+        event.preventDefault();
+        
+        const taskId = document.getElementById('task-id').value;
+        if (!taskId) return;
+        
+        const dependsOnId = document.getElementById('dependency-task').value;
+        const notes = document.getElementById('dependency-notes').value;
+        
+        if (!dependsOnId) {
+            this.showError('Please select a task that this task depends on.');
+            return;
+        }
+        
+        try {
+            // Show loader
+            this.showModalLoader();
+            
+            // Create dependency
+            await API.createTaskDependency(taskId, {
+                task: taskId,
+                depends_on: dependsOnId,
+                notes: notes
+            });
+            
+            // Reload dependencies
+            await this.loadDependencies(taskId);
+            
+            // Reset form
+            document.getElementById('dependency-task').value = '';
+            document.getElementById('dependency-notes').value = '';
+            
+        } catch (error) {
+            console.error('Error creating dependency:', error);
+            this.showError('Failed to create dependency. ' + (error.message || 'Please try again.'));
+        } finally {
+            this.hideModalLoader();
+        }
+    },
+    
+    /**
+     * Toggle a dependency's active status
+     */
+    async toggleDependency(dependencyId) {
+        const taskId = document.getElementById('task-id').value;
+        if (!taskId || !dependencyId) return;
+        
+        try {
+            // Show loader
+            this.showModalLoader();
+            
+            // Toggle dependency
+            await API.toggleTaskDependency(taskId, dependencyId);
+            
+            // Reload dependencies
+            await this.loadDependencies(taskId);
+        } catch (error) {
+            console.error('Error toggling dependency:', error);
+            this.showError('Failed to toggle dependency. Please try again.');
+        } finally {
+            this.hideModalLoader();
+        }
+    },
+    
+    /**
+     * Delete a dependency
+     */
+    async deleteDependency(dependencyId) {
+        const taskId = document.getElementById('task-id').value;
+        if (!taskId || !dependencyId) return;
+        
+        try {
+            // Show loader
+            this.showModalLoader();
+            
+            // Delete dependency
+            await API.deleteTaskDependency(taskId, dependencyId);
+            
+            // Reload dependencies
+            await this.loadDependencies(taskId);
+        } catch (error) {
+            console.error('Error deleting dependency:', error);
+            this.showError('Failed to delete dependency. Please try again.');
+        } finally {
+            this.hideModalLoader();
+        }
+    },
+    
+    /**
+     * Show error message
+     */
+    showError(message) {
+        alert(message);
     }
 };
 
