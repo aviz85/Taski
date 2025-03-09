@@ -186,6 +186,33 @@
                         </div>
                     </form>
                     
+                    <!-- Task Checklist Section - Only shown when editing an existing task -->
+                    <div id="task-checklist" class="task-checklist hidden">
+                        <div class="checklist-header">
+                            <h3><i class="fas fa-tasks"></i> Checklist</h3>
+                            <div class="checklist-progress">
+                                <div class="progress-bar">
+                                    <div id="checklist-progress-value" class="progress-value" style="width: 0%"></div>
+                                </div>
+                                <span id="checklist-progress-text">0%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Checklist Items -->
+                        <div id="checklist-items" class="checklist-items">
+                            <!-- Items will be populated by JS -->
+                            <div class="no-items">No checklist items yet</div>
+                        </div>
+                        
+                        <!-- Add Checklist Item Form -->
+                        <form id="checklist-form" class="checklist-form">
+                            <div class="checklist-input-group">
+                                <input type="text" id="checklist-text" placeholder="Add a checklist item..." required>
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </form>
+                    </div>
+                    
                     <!-- Task Comments Section - Only shown when editing an existing task -->
                     <div id="task-comments" class="task-comments hidden">
                         <h3><i class="far fa-comments"></i> Comments</h3>

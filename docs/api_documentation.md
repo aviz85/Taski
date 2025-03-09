@@ -570,6 +570,265 @@ No response body.
 - `403 Forbidden`: User is not the author of the comment
 - `404 Not Found`: Task or comment not found
 
+### Task Checklists
+
+Task checklists help break down tasks into smaller, actionable items that can be marked as complete.
+
+#### List Checklist Items for a Task
+
+Returns all checklist items for a specific task, where the authenticated user is either the owner or assigned to the task.
+
+```
+GET /api/tasks/{task_id}/checklist/
+```
+
+##### Response (200 OK)
+
+```json
+[
+  {
+    "id": 1,
+    "task": 2,
+    "text": "Research existing solutions",
+    "is_completed": true,
+    "position": 1,
+    "created_at": "2025-03-10T09:45:00Z",
+    "updated_at": "2025-03-10T09:45:00Z"
+  },
+  {
+    "id": 2,
+    "task": 2,
+    "text": "Design database schema",
+    "is_completed": false,
+    "position": 2,
+    "created_at": "2025-03-10T10:15:00Z",
+    "updated_at": "2025-03-10T10:15:00Z"
+  }
+]
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+
+#### Add a Checklist Item to a Task
+
+```
+POST /api/tasks/{task_id}/checklist/
+```
+
+##### Request Body
+
+```json
+{
+  "text": "Implement API endpoints"
+}
+```
+
+Note that the `task` field is automatically set based on the URL, and `is_completed` defaults to false. The `position` field is automatically calculated as the next available position.
+
+##### Response (201 Created)
+
+```json
+{
+  "id": 3,
+  "task": 2,
+  "text": "Implement API endpoints",
+  "is_completed": false,
+  "position": 3,
+  "created_at": "2025-03-11T14:22:00Z",
+  "updated_at": "2025-03-11T14:22:00Z"
+}
+```
+
+##### Possible Errors
+
+- `400 Bad Request`: Missing text field
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User is not the owner or assignee of the task
+- `404 Not Found`: Task not found
+
+#### Get a Specific Checklist Item
+
+```
+GET /api/tasks/{task_id}/checklist/{id}/
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "text": "Research existing solutions",
+  "is_completed": true,
+  "position": 1,
+  "created_at": "2025-03-10T09:45:00Z",
+  "updated_at": "2025-03-10T09:45:00Z"
+}
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or checklist item not found
+
+#### Update a Checklist Item
+
+```
+PUT /api/tasks/{task_id}/checklist/{id}/
+```
+
+##### Request Body
+
+```json
+{
+  "text": "Research existing solutions and alternatives",
+  "is_completed": true
+}
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "text": "Research existing solutions and alternatives",
+  "is_completed": true,
+  "position": 1,
+  "created_at": "2025-03-10T09:45:00Z",
+  "updated_at": "2025-03-11T16:30:00Z"
+}
+```
+
+##### Possible Errors
+
+- `400 Bad Request`: Invalid data
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or checklist item not found
+
+#### Mark a Checklist Item as Complete
+
+```
+PATCH /api/tasks/{task_id}/checklist/{id}/complete/
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "text": "Research existing solutions",
+  "is_completed": true,
+  "position": 1,
+  "created_at": "2025-03-10T09:45:00Z",
+  "updated_at": "2025-03-11T16:30:00Z"
+}
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or checklist item not found
+
+#### Mark a Checklist Item as Incomplete
+
+```
+PATCH /api/tasks/{task_id}/checklist/{id}/incomplete/
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "text": "Research existing solutions",
+  "is_completed": false,
+  "position": 1,
+  "created_at": "2025-03-10T09:45:00Z",
+  "updated_at": "2025-03-11T16:30:00Z"
+}
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or checklist item not found
+
+#### Reorder Checklist Items
+
+```
+POST /api/tasks/{task_id}/checklist/reorder/
+```
+
+##### Request Body
+
+```json
+{
+  "order": [3, 1, 2]
+}
+```
+
+The `order` field should be an array of checklist item IDs in the desired order.
+
+##### Response (200 OK)
+
+```json
+[
+  {
+    "id": 3,
+    "task": 2,
+    "text": "Implement API endpoints",
+    "is_completed": false,
+    "position": 1,
+    "created_at": "2025-03-11T14:22:00Z",
+    "updated_at": "2025-03-11T16:30:00Z"
+  },
+  {
+    "id": 1,
+    "task": 2,
+    "text": "Research existing solutions",
+    "is_completed": true,
+    "position": 2,
+    "created_at": "2025-03-10T09:45:00Z",
+    "updated_at": "2025-03-11T16:30:00Z"
+  },
+  {
+    "id": 2,
+    "task": 2,
+    "text": "Design database schema",
+    "is_completed": false,
+    "position": 3,
+    "created_at": "2025-03-10T10:15:00Z",
+    "updated_at": "2025-03-11T16:30:00Z"
+  }
+]
+```
+
+##### Possible Errors
+
+- `400 Bad Request`: Invalid order data
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task not found
+
+#### Delete a Checklist Item
+
+```
+DELETE /api/tasks/{task_id}/checklist/{id}/
+```
+
+##### Response (204 No Content)
+
+No response body.
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `404 Not Found`: Task or checklist item not found
+
 ## Status Codes
 
 | Status Code | Description                                             |
@@ -587,19 +846,21 @@ No response body.
 
 ### Task
 
-| Field       | Type     | Description                                |
-|-------------|----------|--------------------------------------------|
-| id          | integer  | Unique identifier                          |
-| title       | string   | Title of the task                          |
-| description | string   | Detailed description of the task           |
-| created_at  | datetime | When the task was created (auto-generated) |
-| due_date    | datetime | When the task is due                       |
-| status      | string   | Status of the task (TODO, IN_PROGRESS, DONE) |
-| priority    | string   | Priority level (LOW, MEDIUM, HIGH)         |
-| owner       | integer  | ID of the user who created the task        |
-| assigned_to | integer  | ID of the user assigned to the task        |
-| tags        | string   | Comma-separated list of tags               |
-| duration    | float    | Estimated time to complete (in hours)      |
+| Field               | Type     | Description                                |
+|---------------------|----------|--------------------------------------------|
+| id                  | integer  | Unique identifier                          |
+| title               | string   | Title of the task                          |
+| description         | string   | Detailed description of the task           |
+| created_at          | datetime | When the task was created (auto-generated) |
+| due_date            | datetime | When the task is due                       |
+| status              | string   | Status of the task (TODO, IN_PROGRESS, DONE) |
+| priority            | string   | Priority level (LOW, MEDIUM, HIGH)         |
+| owner               | integer  | ID of the user who created the task        |
+| assigned_to         | integer  | ID of the user assigned to the task        |
+| tags                | string   | Comma-separated list of tags               |
+| duration            | float    | Estimated time to complete (in hours)      |
+| checklist_items     | array    | List of checklist items for the task       |
+| checklist_completion| integer  | Percentage of completed checklist items (0-100) |
 
 ### User
 
@@ -608,6 +869,18 @@ No response body.
 | id       | integer | Unique identifier             |
 | username | string  | Username for authentication   |
 | email    | string  | Email address of the user     |
+
+### ChecklistItem
+
+| Field        | Type     | Description                                |
+|--------------|----------|--------------------------------------------|
+| id           | integer  | Unique identifier                          |
+| task         | integer  | ID of the task this item belongs to        |
+| text         | string   | Description of the checklist item          |
+| is_completed | boolean  | Whether the item is completed or not       |
+| position     | integer  | Position for ordering within the checklist |
+| created_at   | datetime | When the item was created (auto-generated) |
+| updated_at   | datetime | When the item was last updated             |
 
 ## Examples
 
@@ -682,10 +955,36 @@ curl -X DELETE http://localhost:8000/api/tasks/1/ \
   -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..."
 ```
 
+10. Add a checklist item to a task
+
+```bash
+curl -X POST http://localhost:8000/api/tasks/1/checklist/ \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..." \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Review code changes"}'
+```
+
+11. Mark a checklist item as complete
+
+```bash
+curl -X PATCH http://localhost:8000/api/tasks/1/checklist/1/complete/ \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..."
+```
+
+12. Reorder checklist items
+
+```bash
+curl -X POST http://localhost:8000/api/tasks/1/checklist/reorder/ \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..." \
+  -H "Content-Type: application/json" \
+  -d '{"order": [3, 1, 2]}'
+```
+
 ## Notes
 
 - Access tokens expire after 15 minutes. Use the refresh token to get a new access token.
 - All datetime fields should be in ISO 8601 format with timezone information.
 - For filtering and searching tasks, you can combine multiple query parameters.
 - Tags can be provided either as comma-separated values (`tags`) or as an array (`tags_list`).
-- The duration field represents the estimated time in hours to complete the task. 
+- The duration field represents the estimated time in hours to complete the task.
+- The checklist_completion field provides a quick way to see what percentage of a task's checklist items are completed. 

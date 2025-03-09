@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
-from tasks.models import Task
+from tasks.models import Task, ChecklistItem
 import datetime
 import json
 
@@ -166,4 +166,210 @@ class TaskViewSetTest(TestCase):
         response = self.client.get(f"{reverse('task-list')}?search=test task 2")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['title'], 'Test Task 2') 
+        self.assertEqual(response.data[0]['title'], 'Test Task 2')
+
+
+class ChecklistItemViewSetTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users for testing
+        cls.user1 = User.objects.create_user(username='testuser1', password='12345', email='user1@example.com')
+        cls.user2 = User.objects.create_user(username='testuser2', password='12345', email='user2@example.com')
+        
+        # Create tasks for testing
+        cls.task = Task.objects.create(
+            title='Task with Checklist',
+            description='This is a task with a checklist',
+            due_date=timezone.now() + datetime.timedelta(days=7),
+            status='TODO',
+            priority='MEDIUM',
+            owner=cls.user1,
+            assigned_to=cls.user2
+        )
+        
+        # Create some initial checklist items
+        cls.item1 = ChecklistItem.objects.create(
+            task=cls.task,
+            text='First step',
+            position=1
+        )
+        
+        cls.item2 = ChecklistItem.objects.create(
+            task=cls.task,
+            text='Second step',
+            position=2
+        )
+    
+    def setUp(self):
+        self.client = APIClient()
+    
+    def test_list_checklist_items(self):
+        """Test retrieving all checklist items for a task."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-list', kwargs={'task_pk': self.task.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        item_texts = [item['text'] for item in response.data]
+        self.assertIn('First step', item_texts)
+        self.assertIn('Second step', item_texts)
+    
+    def test_get_checklist_item(self):
+        """Test retrieving a specific checklist item."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-detail', kwargs={'task_pk': self.task.id, 'pk': self.item1.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['text'], 'First step')
+        self.assertEqual(response.data['position'], 1)
+    
+    def test_create_checklist_item(self):
+        """Test creating a new checklist item."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-list', kwargs={'task_pk': self.task.id})
+        
+        data = {
+            'text': 'New checklist item',
+            'task': self.task.id  # Include task ID in request
+        }
+        
+        response = self.client.post(url, data, format='json')
+        
+        # Debug output if needed
+        if response.status_code != status.HTTP_201_CREATED:
+            print(f"Error response: {response.data}")
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['text'], 'New checklist item')
+        self.assertEqual(response.data['is_completed'], False)
+        
+        # Check that position is automatically set to 3 (after existing items)
+        self.assertEqual(response.data['position'], 3)
+        
+        # Verify it's in the database
+        self.assertTrue(ChecklistItem.objects.filter(id=response.data['id']).exists())
+    
+    def test_update_checklist_item(self):
+        """Test updating a checklist item."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-detail', kwargs={'task_pk': self.task.id, 'pk': self.item1.id})
+        
+        data = {
+            'text': 'Updated first step'
+        }
+        
+        response = self.client.patch(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['text'], 'Updated first step')
+        
+        # Position and completion status should remain unchanged
+        self.assertEqual(response.data['position'], 1)
+        self.assertEqual(response.data['is_completed'], False)
+    
+    def test_delete_checklist_item(self):
+        """Test deleting a checklist item."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-detail', kwargs={'task_pk': self.task.id, 'pk': self.item1.id})
+        
+        response = self.client.delete(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ChecklistItem.objects.filter(id=self.item1.id).exists())
+    
+    def test_complete_checklist_item(self):
+        """Test marking a checklist item as complete."""
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-complete', kwargs={'task_pk': self.task.id, 'pk': self.item1.id})
+        
+        response = self.client.patch(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['is_completed'])
+        
+        # Verify in database
+        item = ChecklistItem.objects.get(id=self.item1.id)
+        self.assertTrue(item.is_completed)
+    
+    def test_incomplete_checklist_item(self):
+        """Test marking a checklist item as incomplete."""
+        # First mark it as complete
+        self.item1.is_completed = True
+        self.item1.save()
+        
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-incomplete', kwargs={'task_pk': self.task.id, 'pk': self.item1.id})
+        
+        response = self.client.patch(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['is_completed'])
+        
+        # Verify in database
+        item = ChecklistItem.objects.get(id=self.item1.id)
+        self.assertFalse(item.is_completed)
+    
+    def test_reorder_checklist_items(self):
+        """Test reordering checklist items."""
+        # Add a third item
+        item3 = ChecklistItem.objects.create(
+            task=self.task,
+            text='Third step',
+            position=3
+        )
+        
+        self.client.force_authenticate(user=self.user1)
+        url = reverse('task-checklist-reorder', kwargs={'task_pk': self.task.id})
+        
+        # Reorder to: item3, item1, item2
+        data = {
+            'order': [item3.id, self.item1.id, self.item2.id]
+        }
+        
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify the new order in the database
+        items = ChecklistItem.objects.filter(task=self.task).order_by('position')
+        self.assertEqual(items[0].id, item3.id)
+        self.assertEqual(items[0].position, 1)
+        self.assertEqual(items[1].id, self.item1.id)
+        self.assertEqual(items[1].position, 2)
+        self.assertEqual(items[2].id, self.item2.id)
+        self.assertEqual(items[2].position, 3)
+    
+    def test_unauthenticated_access(self):
+        """Test that unauthenticated users cannot access checklist items."""
+        url = reverse('task-checklist-list', kwargs={'task_pk': self.task.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_unauthorized_access(self):
+        """Test that users who are not owners or assignees cannot access checklist items."""
+        # Create a third user with no association to the task
+        user3 = User.objects.create_user(username='testuser3', password='12345', email='user3@example.com')
+        
+        self.client.force_authenticate(user=user3)
+        url = reverse('task-checklist-list', kwargs={'task_pk': self.task.id})
+        
+        # Try to get the list (should return empty list)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+        
+        # Try to create an item (this should be blocked at the view level)
+        data = {
+            'text': 'Unauthorized item',
+            'task': self.task.id  # Include task ID in request
+        }
+        
+        response = self.client.post(url, data, format='json')
+        
+        # Either HTTP_403_FORBIDDEN or HTTP_400_BAD_REQUEST is acceptable
+        # since authorization may be happening at different levels
+        self.assertIn(response.status_code, 
+                      [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST]) 

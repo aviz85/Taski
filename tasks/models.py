@@ -60,3 +60,20 @@ class TaskComment(models.Model):
     
     def __str__(self):
         return f"Comment by {self.author.username} on {self.task.title}"
+
+
+class ChecklistItem(models.Model):
+    """Model for checklist items within a task."""
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='checklist_items')
+    text = models.CharField(max_length=255)
+    is_completed = models.BooleanField(default=False)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['position', 'created_at']
+        
+    def __str__(self):
+        status = "✓" if self.is_completed else "○"
+        return f"{status} {self.text} ({self.task.title})"

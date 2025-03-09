@@ -340,6 +340,154 @@ const API = {
     },
     
     /**
+     * Get checklist items for a task
+     */
+    async getTaskChecklist(taskId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/checklist/`);
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to fetch task checklist');
+            }
+        } catch (error) {
+            console.error(`Get checklist for task ${taskId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Create a new checklist item for a task
+     */
+    async createChecklistItem(taskId, text) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/checklist/`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    text,
+                    task: taskId
+                })
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to create checklist item');
+            }
+        } catch (error) {
+            console.error(`Create checklist item for task ${taskId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Update an existing checklist item
+     */
+    async updateChecklistItem(taskId, itemId, data) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/checklist/${itemId}/`, {
+                method: 'PATCH',
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to update checklist item');
+            }
+        } catch (error) {
+            console.error(`Update checklist item ${itemId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Mark a checklist item as complete
+     */
+    async completeChecklistItem(taskId, itemId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/checklist/${itemId}/complete/`, {
+                method: 'PATCH'
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to complete checklist item');
+            }
+        } catch (error) {
+            console.error(`Complete checklist item ${itemId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Mark a checklist item as incomplete
+     */
+    async incompleteChecklistItem(taskId, itemId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/checklist/${itemId}/incomplete/`, {
+                method: 'PATCH'
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to incomplete checklist item');
+            }
+        } catch (error) {
+            console.error(`Incomplete checklist item ${itemId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Reorder checklist items
+     */
+    async reorderChecklistItems(taskId, itemIds) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/checklist/reorder/`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    order: itemIds
+                })
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error('Failed to reorder checklist items');
+            }
+        } catch (error) {
+            console.error(`Reorder checklist items for task ${taskId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Delete a checklist item
+     */
+    async deleteChecklistItem(taskId, itemId) {
+        try {
+            const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/checklist/${itemId}/`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                return true;
+            } else {
+                throw new Error('Failed to delete checklist item');
+            }
+        } catch (error) {
+            console.error(`Delete checklist item ${itemId} error:`, error);
+            throw error;
+        }
+    },
+    
+    /**
      * Get comments for a task
      */
     async getTaskComments(taskId) {

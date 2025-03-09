@@ -26,7 +26,12 @@ const Tasks = {
         tagFilter: document.getElementById('tag-filter'),
         commentsSection: document.getElementById('task-comments'),
         commentsList: document.getElementById('comments-list'),
-        commentForm: document.getElementById('comment-form')
+        commentForm: document.getElementById('comment-form'),
+        checklistSection: document.getElementById('task-checklist'),
+        checklistItems: document.getElementById('checklist-items'),
+        checklistForm: document.getElementById('checklist-form'),
+        checklistProgressValue: document.getElementById('checklist-progress-value'),
+        checklistProgressText: document.getElementById('checklist-progress-text')
     },
     
     // Current filters
@@ -37,11 +42,13 @@ const Tasks = {
         tag: ''
     },
     
-    // Current tasks and comments
+    // Current tasks, comments, and checklist items
     tasks: [],
     comments: [],
     currentTaskId: null,
     editingCommentId: null,
+    checklistItems: [],
+    editingChecklistItemId: null,
     
     // Current users
     users: [],
@@ -51,6 +58,7 @@ const Tasks = {
      */
     init() {
         this.addEventListeners();
+        this.initDragAndDrop();
     },
     
     /**
@@ -101,6 +109,16 @@ const Tasks = {
         
         // Comment form submission
         this.elements.commentForm.addEventListener('submit', (e) => this.handleCommentSubmit(e));
+        
+        // Checklist form submission
+        this.elements.checklistForm.addEventListener('submit', (e) => this.handleChecklistSubmit(e));
+    },
+    
+    /**
+     * Initialize drag and drop for checklist items
+     */
+    initDragAndDrop() {
+        // This will be initialized when checklist items are loaded
     },
     
     /**
@@ -203,6 +221,17 @@ const Tasks = {
             `;
         }
         
+        // Checklist progress badge if present
+        let checklistHtml = '';
+        if (task.checklist_items && task.checklist_items.length > 0) {
+            const completionPercentage = task.checklist_completion || 0;
+            checklistHtml = `
+                <div class="task-checklist-badge">
+                    <i class="fas fa-tasks"></i> ${completionPercentage}% complete
+                </div>
+            `;
+        }
+        
         taskCard.innerHTML = `
             <div class="task-header">
                 <h3 class="task-title">${task.title}</h3>
@@ -220,6 +249,7 @@ const Tasks = {
                 </div>
                 ${tagsHtml}
                 ${durationHtml}
+                ${checklistHtml}
             </div>
             <div class="task-actions">
                 <button class="btn btn-primary task-btn edit-task">Edit</button>
@@ -302,6 +332,10 @@ const Tasks = {
             // Load and show comments for existing task
             this.elements.commentsSection.classList.remove('hidden');
             this.loadComments(task.id);
+            
+            // Load and show checklist for existing task
+            this.elements.checklistSection.classList.remove('hidden');
+            this.loadChecklist(task.id);
         } else {
             // Default values for new task
             document.getElementById('task-id').value = '';
@@ -314,8 +348,9 @@ const Tasks = {
             tomorrow.setDate(tomorrow.getDate() + 1);
             document.getElementById('task-due-date').value = tomorrow.toISOString().slice(0, 16);
             
-            // Hide comments section for new task
+            // Hide comments and checklist sections for new task
             this.elements.commentsSection.classList.add('hidden');
+            this.elements.checklistSection.classList.add('hidden');
         }
         
         // Show modal
@@ -697,6 +732,404 @@ const Tasks = {
             console.error('Error deleting comment:', error);
             alert('Failed to delete comment. Please try again.');
         }
+    },
+    
+    /**
+     * Load checklist for a task
+     */
+    async loadChecklist(taskId) {
+        try {
+            // Clear existing checklist items
+            this.checklistItems = [];
+            this.renderChecklist();
+            
+            // Show loading indicator
+            this.elements.checklistItems.innerHTML = '<div class="loader"></div>';
+            
+            // Load checklist items
+            this.checklistItems = await API.getTaskChecklist(taskId);
+            
+            // Render checklist
+            this.renderChecklist();
+            this.updateChecklistProgress();
+            
+            // Initialize drag and drop
+            this.initChecklistDragAndDrop();
+        } catch (error) {
+            console.error('Error loading checklist:', error);
+            this.elements.checklistItems.innerHTML = '<div class="error-message">Failed to load checklist</div>';
+        }
+    },
+    
+    /**
+     * Render checklist items to the DOM
+     */
+    renderChecklist() {
+        const checklistContainer = this.elements.checklistItems;
+        
+        // Clear current checklist
+        checklistContainer.innerHTML = '';
+        
+        if (this.checklistItems.length === 0) {
+            checklistContainer.innerHTML = '<div class="no-items">No checklist items yet</div>';
+            return;
+        }
+        
+        // Sort items by position
+        const sortedItems = [...this.checklistItems].sort((a, b) => a.position - b.position);
+        
+        // Render each item
+        sortedItems.forEach(item => {
+            const checklistElement = this.createChecklistElement(item);
+            checklistContainer.appendChild(checklistElement);
+        });
+    },
+    
+    /**
+     * Create a checklist item element
+     */
+    createChecklistElement(item) {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'checklist-item';
+        itemElement.dataset.id = item.id;
+        
+        // If currently editing this item, show edit form instead
+        if (this.editingChecklistItemId === item.id) {
+            itemElement.innerHTML = `
+                <div class="checklist-item-drag"><i class="fas fa-grip-lines"></i></div>
+                <form class="checklist-edit-form">
+                    <input type="text" class="edit-checklist-text" value="${item.text}" required>
+                    <button type="button" class="btn cancel-edit">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            `;
+            
+            // Add event listeners for edit form
+            const editForm = itemElement.querySelector('.checklist-edit-form');
+            const cancelBtn = itemElement.querySelector('.cancel-edit');
+            
+            editForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const text = itemElement.querySelector('.edit-checklist-text').value;
+                this.updateChecklistItem(item.id, { text });
+            });
+            
+            cancelBtn.addEventListener('click', () => {
+                this.editingChecklistItemId = null;
+                this.renderChecklist();
+            });
+            
+            return itemElement;
+        }
+        
+        // Standard checklist item display
+        itemElement.innerHTML = `
+            <div class="checklist-item-drag"><i class="fas fa-grip-lines"></i></div>
+            <input type="checkbox" class="checklist-item-checkbox" ${item.is_completed ? 'checked' : ''}>
+            <div class="checklist-item-text ${item.is_completed ? 'completed' : ''}">${item.text}</div>
+            <div class="checklist-item-actions">
+                <button type="button" class="edit-item"><i class="fas fa-edit"></i></button>
+                <button type="button" class="delete-item"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        `;
+        
+        // Add event listeners
+        const checkbox = itemElement.querySelector('.checklist-item-checkbox');
+        const editBtn = itemElement.querySelector('.edit-item');
+        const deleteBtn = itemElement.querySelector('.delete-item');
+        
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                this.completeChecklistItem(item.id);
+            } else {
+                this.incompleteChecklistItem(item.id);
+            }
+        });
+        
+        editBtn.addEventListener('click', () => {
+            this.editingChecklistItemId = item.id;
+            this.renderChecklist();
+        });
+        
+        deleteBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to delete this checklist item?')) {
+                this.deleteChecklistItem(item.id);
+            }
+        });
+        
+        return itemElement;
+    },
+    
+    /**
+     * Initialize drag and drop for checklist items
+     */
+    initChecklistDragAndDrop() {
+        const container = this.elements.checklistItems;
+        const items = container.querySelectorAll('.checklist-item');
+        
+        if (!items.length) return;
+        
+        items.forEach(item => {
+            const dragHandle = item.querySelector('.checklist-item-drag');
+            
+            dragHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                
+                const startY = e.clientY;
+                const itemHeight = item.offsetHeight;
+                const itemInitialIndex = Array.from(container.children).indexOf(item);
+                
+                item.classList.add('dragging');
+                
+                const onMouseMove = (e) => {
+                    const currentY = e.clientY;
+                    const deltaY = currentY - startY;
+                    const moveCount = Math.round(deltaY / itemHeight);
+                    
+                    let newIndex = itemInitialIndex + moveCount;
+                    newIndex = Math.max(0, Math.min(newIndex, container.children.length - 1));
+                    
+                    if (newIndex !== Array.from(container.children).indexOf(item)) {
+                        // Move item in the DOM
+                        if (newIndex === 0) {
+                            container.prepend(item);
+                        } else if (newIndex === container.children.length - 1) {
+                            container.appendChild(item);
+                        } else {
+                            const referenceNode = container.children[newIndex];
+                            container.insertBefore(item, referenceNode);
+                        }
+                    }
+                };
+                
+                const onMouseUp = () => {
+                    item.classList.remove('dragging');
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    
+                    // Save the new order
+                    const newOrder = Array.from(container.children)
+                        .map(el => parseInt(el.dataset.id))
+                        .filter(id => !isNaN(id));
+                    
+                    this.reorderChecklistItems(newOrder);
+                };
+                
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    },
+    
+    /**
+     * Handle checklist form submission
+     */
+    async handleChecklistSubmit(event) {
+        event.preventDefault();
+        
+        if (!this.currentTaskId) return;
+        
+        const text = document.getElementById('checklist-text').value;
+        if (!text.trim()) return;
+        
+        try {
+            // Disable form
+            const submitBtn = this.elements.checklistForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            // Create checklist item
+            const newItem = await API.createChecklistItem(this.currentTaskId, text);
+            
+            // Add to checklist and render
+            this.checklistItems.push(newItem);
+            this.renderChecklist();
+            this.updateChecklistProgress();
+            this.initChecklistDragAndDrop();
+            
+            // Clear form
+            document.getElementById('checklist-text').value = '';
+        } catch (error) {
+            console.error('Error creating checklist item:', error);
+            alert('Failed to add checklist item. Please try again.');
+        } finally {
+            // Re-enable form
+            const submitBtn = this.elements.checklistForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-plus"></i>';
+        }
+    },
+    
+    /**
+     * Update a checklist item
+     */
+    async updateChecklistItem(itemId, data) {
+        if (!this.currentTaskId) return;
+        
+        try {
+            // Update item in API
+            const updatedItem = await API.updateChecklistItem(this.currentTaskId, itemId, data);
+            
+            // Update in local array
+            const index = this.checklistItems.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+                this.checklistItems[index] = updatedItem;
+            }
+            
+            // Exit editing mode and re-render
+            this.editingChecklistItemId = null;
+            this.renderChecklist();
+            this.updateChecklistProgress();
+        } catch (error) {
+            console.error('Error updating checklist item:', error);
+            alert('Failed to update checklist item. Please try again.');
+        }
+    },
+    
+    /**
+     * Mark a checklist item as complete
+     */
+    async completeChecklistItem(itemId) {
+        if (!this.currentTaskId) return;
+        
+        try {
+            // Update item in API
+            const updatedItem = await API.completeChecklistItem(this.currentTaskId, itemId);
+            
+            // Update in local array
+            const index = this.checklistItems.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+                this.checklistItems[index] = updatedItem;
+            }
+            
+            // Update UI
+            this.updateChecklistProgress();
+            
+            // No need to re-render, just update the item's appearance
+            const itemElement = this.elements.checklistItems.querySelector(`[data-id="${itemId}"]`);
+            if (itemElement) {
+                const textElement = itemElement.querySelector('.checklist-item-text');
+                if (textElement) {
+                    textElement.classList.add('completed');
+                }
+            }
+        } catch (error) {
+            console.error('Error completing checklist item:', error);
+            
+            // Revert checkbox state
+            const itemElement = this.elements.checklistItems.querySelector(`[data-id="${itemId}"]`);
+            if (itemElement) {
+                const checkbox = itemElement.querySelector('.checklist-item-checkbox');
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            }
+        }
+    },
+    
+    /**
+     * Mark a checklist item as incomplete
+     */
+    async incompleteChecklistItem(itemId) {
+        if (!this.currentTaskId) return;
+        
+        try {
+            // Update item in API
+            const updatedItem = await API.incompleteChecklistItem(this.currentTaskId, itemId);
+            
+            // Update in local array
+            const index = this.checklistItems.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+                this.checklistItems[index] = updatedItem;
+            }
+            
+            // Update UI
+            this.updateChecklistProgress();
+            
+            // No need to re-render, just update the item's appearance
+            const itemElement = this.elements.checklistItems.querySelector(`[data-id="${itemId}"]`);
+            if (itemElement) {
+                const textElement = itemElement.querySelector('.checklist-item-text');
+                if (textElement) {
+                    textElement.classList.remove('completed');
+                }
+            }
+        } catch (error) {
+            console.error('Error incompleting checklist item:', error);
+            
+            // Revert checkbox state
+            const itemElement = this.elements.checklistItems.querySelector(`[data-id="${itemId}"]`);
+            if (itemElement) {
+                const checkbox = itemElement.querySelector('.checklist-item-checkbox');
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+            }
+        }
+    },
+    
+    /**
+     * Reorder checklist items
+     */
+    async reorderChecklistItems(newOrder) {
+        if (!this.currentTaskId || !newOrder.length) return;
+        
+        try {
+            // Update items in API
+            const updatedItems = await API.reorderChecklistItems(this.currentTaskId, newOrder);
+            
+            // Update local array
+            this.checklistItems = updatedItems;
+            
+            // No need to re-render as the DOM is already in the correct order
+        } catch (error) {
+            console.error('Error reordering checklist items:', error);
+            // Re-render to restore original order
+            this.renderChecklist();
+        }
+    },
+    
+    /**
+     * Delete a checklist item
+     */
+    async deleteChecklistItem(itemId) {
+        if (!this.currentTaskId) return;
+        
+        try {
+            // Delete item from API
+            await API.deleteChecklistItem(this.currentTaskId, itemId);
+            
+            // Remove from local array
+            this.checklistItems = this.checklistItems.filter(item => item.id !== itemId);
+            
+            // Re-render checklist
+            this.renderChecklist();
+            this.updateChecklistProgress();
+            this.initChecklistDragAndDrop();
+        } catch (error) {
+            console.error('Error deleting checklist item:', error);
+            alert('Failed to delete checklist item. Please try again.');
+        }
+    },
+    
+    /**
+     * Update checklist progress display
+     */
+    updateChecklistProgress() {
+        const items = this.checklistItems;
+        
+        if (!items.length) {
+            this.elements.checklistProgressValue.style.width = '0%';
+            this.elements.checklistProgressText.textContent = '0%';
+            return;
+        }
+        
+        const completed = items.filter(item => item.is_completed).length;
+        const percentage = Math.round((completed / items.length) * 100);
+        
+        this.elements.checklistProgressValue.style.width = `${percentage}%`;
+        this.elements.checklistProgressText.textContent = `${percentage}%`;
     }
 };
 

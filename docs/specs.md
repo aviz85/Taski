@@ -34,6 +34,14 @@
 - created_at (datetime)
 - updated_at (datetime)
 
+### ChecklistItem
+- task (FK -> Task)
+- text (string) - תיאור הפריט
+- is_completed (boolean) - סטטוס השלמה
+- position (integer) - מיקום הפריט ברשימה
+- created_at (datetime)
+- updated_at (datetime)
+
 ## Endpoints
 ### Authentication
 ```
@@ -59,6 +67,17 @@ POST /api/tasks/{task_id}/comments/
 GET /api/tasks/{task_id}/comments/{id}/
 PUT /api/tasks/{task_id}/comments/{id}/
 DELETE /api/tasks/{task_id}/comments/{id}/
+```
+
+### Task Checklists
+```
+GET /api/tasks/{task_id}/checklist/
+POST /api/tasks/{task_id}/checklist/
+GET /api/tasks/{task_id}/checklist/{id}/
+PUT /api/tasks/{task_id}/checklist/{id}/
+PATCH /api/tasks/{task_id}/checklist/{id}/complete/
+PATCH /api/tasks/{task_id}/checklist/{id}/incomplete/
+DELETE /api/tasks/{task_id}/checklist/{id}/
 ```
 
 ## אבטחה
@@ -114,6 +133,7 @@ project/
 - הערכת זמן למשימות
 - תצוגת קנבן (טודו - בתהליך - הושלם)
 - תגובות למשימות - אפשרות להוסיף תגובות ודיונים על משימות
+- רשימות תיוג (צ'קליסטים) - פירוק משימות לתתי-פעולות עם מעקב השלמה
 
 ## הגדרות Django
 ### Required Apps
@@ -149,4 +169,5 @@ REST_FRAMEWORK = {
 6. אינטגרציה של Frontend ו-Backend
 7. הוספת תכונות מתקדמות (תגיות, זמן משוער, תצוגת קנבן)
 8. הוספת תגובות למשימות
-9. בדיקות ותיקון באגים
+9. הוספת רשימות תיוג למשימות
+10. בדיקות ותיקון באגים

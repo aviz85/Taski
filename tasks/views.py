@@ -1,11 +1,13 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
-from .models import Task, TaskComment
-from .serializers import TaskSerializer, TaskCommentSerializer
+from .models import Task, TaskComment, ChecklistItem
+from .serializers import TaskSerializer, TaskCommentSerializer, ChecklistItemSerializer
 
 # Create your views here.
 
@@ -69,3 +71,105 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You don't have permission to comment on this task")
             
         serializer.save(task=task, author=self.request.user)
+
+
+class ChecklistItemViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing checklist items on a specific task.
+    """
+    serializer_class = ChecklistItemSerializer
+    permission_classes = [IsAuthenticated]
+    ordering = ['position', 'created_at']
+    
+    def get_queryset(self):
+        """
+        Return checklist items for the specified task where the user is either
+        the task owner or assigned to the task.
+        """
+        task_id = self.kwargs.get('task_pk')
+        task = get_object_or_404(Task, pk=task_id)
+        
+        # Check if user is associated with the task
+        if not (task.owner == self.request.user or task.assigned_to == self.request.user):
+            return ChecklistItem.objects.none()
+            
+        return ChecklistItem.objects.filter(task=task)
+    
+    def perform_create(self, serializer):
+        """
+        Create a new checklist item, automatically setting the task.
+        Also set the position to be the highest position + 1.
+        """
+        task_id = self.kwargs.get('task_pk')
+        task = get_object_or_404(Task, pk=task_id)
+        
+        # Check if user is associated with the task
+        if not (task.owner == self.request.user or task.assigned_to == self.request.user):
+            raise PermissionDenied("You don't have permission to add checklist items to this task")
+        
+        # Get the highest position and add 1
+        highest_position = ChecklistItem.objects.filter(task=task).order_by('-position').first()
+        position = 1
+        if highest_position:
+            position = highest_position.position + 1
+            
+        serializer.save(task=task, position=position)
+    
+    @action(detail=True, methods=['patch'])
+    def complete(self, request, task_pk=None, pk=None):
+        """
+        Mark a checklist item as completed.
+        """
+        checklist_item = self.get_object()
+        checklist_item.is_completed = True
+        checklist_item.save()
+        
+        serializer = self.get_serializer(checklist_item)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['patch'])
+    def incomplete(self, request, task_pk=None, pk=None):
+        """
+        Mark a checklist item as incomplete.
+        """
+        checklist_item = self.get_object()
+        checklist_item.is_completed = False
+        checklist_item.save()
+        
+        serializer = self.get_serializer(checklist_item)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def reorder(self, request, task_pk=None):
+        """
+        Reorder checklist items based on the provided order.
+        Expects an array of item IDs in the desired order.
+        """
+        task = get_object_or_404(Task, pk=task_pk)
+        
+        # Check if user is associated with the task
+        if not (task.owner == self.request.user or task.assigned_to == self.request.user):
+            raise PermissionDenied("You don't have permission to reorder checklist items for this task")
+        
+        # Get the IDs from the request data
+        items_order = request.data.get('order', [])
+        if not items_order:
+            return Response({"error": "No order provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update the position of each item
+        checklist_items = {item.id: item for item in ChecklistItem.objects.filter(task=task)}
+        
+        for position, item_id in enumerate(items_order, 1):
+            try:
+                item_id = int(item_id)
+                if item_id in checklist_items:
+                    item = checklist_items[item_id]
+                    item.position = position
+                    item.save()
+            except (ValueError, KeyError):
+                pass
+        
+        # Return the updated list
+        return Response(
+            self.get_serializer(ChecklistItem.objects.filter(task=task), many=True).data
+        )
