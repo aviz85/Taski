@@ -127,6 +127,26 @@ POST /api/auth/refresh/
 
 - `401 Unauthorized`: Invalid or expired refresh token
 
+#### Get Current User
+
+```
+GET /api/auth/user/
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "username": "example_user",
+  "email": "user@example.com"
+}
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+
 ### Tasks
 
 #### List All Tasks
@@ -145,6 +165,7 @@ GET /api/tasks/
 | priority  | string | Filter by priority (LOW, MEDIUM, HIGH)            |
 | search    | string | Search for tasks matching the query in title/description |
 | ordering  | string | Order results (created_at, -created_at, due_date, etc.) |
+| tag       | string | Filter by tag (returns tasks that contain this tag) |
 
 ##### Response (200 OK)
 
@@ -160,6 +181,8 @@ GET /api/tasks/
     "priority": "HIGH",
     "owner": 1,
     "assigned_to": 1,
+    "tags": "documentation,urgent,project",
+    "duration": 4.5,
     "owner_details": {
       "id": 1,
       "username": "example_user",
@@ -195,7 +218,25 @@ POST /api/tasks/
   "status": "TODO",
   "priority": "MEDIUM",
   "assigned_to": 2,
-  "owner": 1
+  "owner": 1,
+  "tags": "feature,frontend,development",
+  "duration": 8.0
+}
+```
+
+You can also use `tags_list` instead of `tags` to provide tags as an array:
+
+```json
+{
+  "title": "Task with tags",
+  "description": "Using tags list format",
+  "due_date": "2025-03-20T18:00:00Z",
+  "status": "TODO",
+  "priority": "MEDIUM",
+  "assigned_to": 2,
+  "owner": 1,
+  "tags_list": ["feature", "frontend", "development"],
+  "duration": 8.0
 }
 ```
 
@@ -212,6 +253,8 @@ POST /api/tasks/
   "priority": "MEDIUM",
   "owner": 1,
   "assigned_to": 2,
+  "tags": "feature,frontend,development",
+  "duration": 8.0,
   "owner_details": {
     "id": 1,
     "username": "example_user",
@@ -228,6 +271,7 @@ POST /api/tasks/
 ##### Possible Errors
 
 - `400 Bad Request`: Missing required fields
+- `400 Bad Request`: Invalid data (e.g., invalid status or priority value)
 - `401 Unauthorized`: Missing or invalid authentication token
 
 #### Retrieve a Specific Task
@@ -249,6 +293,8 @@ GET /api/tasks/{id}/
   "priority": "MEDIUM",
   "owner": 1,
   "assigned_to": 2,
+  "tags": "feature,frontend,development", 
+  "duration": 8.0,
   "owner_details": {
     "id": 1,
     "username": "example_user",
@@ -283,7 +329,9 @@ PUT /api/tasks/{id}/
   "status": "IN_PROGRESS",
   "priority": "HIGH",
   "assigned_to": 2,
-  "owner": 1
+  "owner": 1,
+  "tags": "feature,frontend,development,urgent",
+  "duration": 10.5
 }
 ```
 
@@ -302,7 +350,19 @@ PATCH /api/tasks/{id}/
 ```json
 {
   "status": "IN_PROGRESS",
-  "priority": "HIGH"
+  "priority": "HIGH",
+  "tags": "feature,frontend,development,urgent",
+  "duration": 12
+}
+```
+
+You can also update tags using the `tags_list` field:
+
+```json
+{
+  "title": "Updated Task",
+  "description": "Updated description",
+  "tags_list": ["new", "updated", "tags"]
 }
 ```
 
@@ -330,6 +390,185 @@ No response body.
 
 - `401 Unauthorized`: Missing or invalid authentication token
 - `404 Not Found`: Task not found or user doesn't have access
+
+### Task Comments
+
+#### List Comments for a Task
+
+Returns all comments for a specific task, where the authenticated user is either the owner or assigned to the task.
+
+```
+GET /api/tasks/{task_id}/comments/
+```
+
+##### Response (200 OK)
+
+```json
+[
+  {
+    "id": 1,
+    "task": 2,
+    "author": 1,
+    "content": "This is going well, I should be done by tomorrow.",
+    "created_at": "2025-03-10T09:45:00Z",
+    "updated_at": "2025-03-10T09:45:00Z",
+    "author_details": {
+      "id": 1,
+      "username": "example_user",
+      "email": "user@example.com"
+    }
+  },
+  {
+    "id": 2,
+    "task": 2,
+    "author": 3,
+    "content": "Great progress! Let me know if you need any help.",
+    "created_at": "2025-03-10T10:15:00Z",
+    "updated_at": "2025-03-10T10:15:00Z",
+    "author_details": {
+      "id": 3,
+      "username": "another_user",
+      "email": "another@example.com"
+    }
+  }
+]
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User is not the owner or assignee of the task
+- `404 Not Found`: Task not found
+
+#### Add a Comment to a Task
+
+```
+POST /api/tasks/{task_id}/comments/
+```
+
+##### Request Body
+
+```json
+{
+  "content": "Just updated the UI, please review when you have time."
+}
+```
+
+Note that the `task` and `author` fields are automatically set by the API based on the URL and the authenticated user.
+
+##### Response (201 Created)
+
+```json
+{
+  "id": 3,
+  "task": 2,
+  "author": 1,
+  "content": "Just updated the UI, please review when you have time.",
+  "created_at": "2025-03-11T14:22:00Z",
+  "updated_at": "2025-03-11T14:22:00Z",
+  "author_details": {
+    "id": 1,
+    "username": "example_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+##### Possible Errors
+
+- `400 Bad Request`: Missing content field
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User is not the owner or assignee of the task
+- `404 Not Found`: Task not found
+
+#### Get a Specific Comment
+
+```
+GET /api/tasks/{task_id}/comments/{id}/
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "author": 1,
+  "content": "This is going well, I should be done by tomorrow.",
+  "created_at": "2025-03-10T09:45:00Z",
+  "updated_at": "2025-03-10T09:45:00Z",
+  "author_details": {
+    "id": 1,
+    "username": "example_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User is not the owner or assignee of the task
+- `404 Not Found`: Task or comment not found
+
+#### Update a Comment
+
+Users can only update their own comments.
+
+```
+PUT /api/tasks/{task_id}/comments/{id}/
+```
+
+##### Request Body
+
+```json
+{
+  "content": "Updated comment text with more information."
+}
+```
+
+##### Response (200 OK)
+
+```json
+{
+  "id": 1,
+  "task": 2,
+  "author": 1,
+  "content": "Updated comment text with more information.",
+  "created_at": "2025-03-10T09:45:00Z",
+  "updated_at": "2025-03-11T16:30:00Z",
+  "author_details": {
+    "id": 1,
+    "username": "example_user",
+    "email": "user@example.com"
+  }
+}
+```
+
+##### Possible Errors
+
+- `400 Bad Request`: Invalid data
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User is not the author of the comment
+- `404 Not Found`: Task or comment not found
+
+#### Delete a Comment
+
+Users can only delete their own comments.
+
+```
+DELETE /api/tasks/{task_id}/comments/{id}/
+```
+
+##### Response (204 No Content)
+
+No response body.
+
+##### Possible Errors
+
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User is not the author of the comment
+- `404 Not Found`: Task or comment not found
 
 ## Status Codes
 
@@ -359,6 +598,16 @@ No response body.
 | priority    | string   | Priority level (LOW, MEDIUM, HIGH)         |
 | owner       | integer  | ID of the user who created the task        |
 | assigned_to | integer  | ID of the user assigned to the task        |
+| tags        | string   | Comma-separated list of tags               |
+| duration    | float    | Estimated time to complete (in hours)      |
+
+### User
+
+| Field    | Type    | Description                   |
+|----------|---------|-------------------------------|
+| id       | integer | Unique identifier             |
+| username | string  | Username for authentication   |
+| email    | string  | Email address of the user     |
 
 ## Examples
 
@@ -380,26 +629,56 @@ curl -X POST http://localhost:8000/api/auth/login/ \
   -d '{"username": "newuser", "password": "password123"}'
 ```
 
-3. Create a task (using access token)
+3. Get user information
+
+```bash
+curl -X GET http://localhost:8000/api/auth/user/ \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..."
+```
+
+4. Create a task (using access token)
 
 ```bash
 curl -X POST http://localhost:8000/api/tasks/ \
   -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..." \
   -H "Content-Type: application/json" \
-  -d '{"title": "New Task", "description": "Task description", "due_date": "2025-04-01T12:00:00Z", "status": "TODO", "priority": "MEDIUM", "assigned_to": 1, "owner": 1}'
+  -d '{"title": "New Task", "description": "Task description", "due_date": "2025-04-01T12:00:00Z", "status": "TODO", "priority": "MEDIUM", "assigned_to": 1, "owner": 1, "tags": "example,test", "duration": 2.5}'
 ```
 
-4. List all tasks
+5. List all tasks
 
 ```bash
 curl -X GET http://localhost:8000/api/tasks/ \
   -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..."
 ```
 
-5. Filter tasks by status
+6. Filter tasks by status
 
 ```bash
 curl -X GET "http://localhost:8000/api/tasks/?status=TODO" \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..."
+```
+
+7. Filter tasks by tag
+
+```bash
+curl -X GET "http://localhost:8000/api/tasks/?tag=urgent" \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..."
+```
+
+8. Update a task
+
+```bash
+curl -X PATCH http://localhost:8000/api/tasks/1/ \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..." \
+  -H "Content-Type: application/json" \
+  -d '{"status": "IN_PROGRESS", "tags_list": ["important", "in-progress"]}'
+```
+
+9. Delete a task
+
+```bash
+curl -X DELETE http://localhost:8000/api/tasks/1/ \
   -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1..."
 ```
 
@@ -407,4 +686,6 @@ curl -X GET "http://localhost:8000/api/tasks/?status=TODO" \
 
 - Access tokens expire after 15 minutes. Use the refresh token to get a new access token.
 - All datetime fields should be in ISO 8601 format with timezone information.
-- For filtering and searching tasks, you can combine multiple query parameters. 
+- For filtering and searching tasks, you can combine multiple query parameters.
+- Tags can be provided either as comma-separated values (`tags`) or as an array (`tags_list`).
+- The duration field represents the estimated time in hours to complete the task. 

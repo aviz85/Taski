@@ -24,6 +24,15 @@
 - priority (enum: LOW, MEDIUM, HIGH)
 - owner (FK -> User)
 - assigned_to (FK -> User)
+- tags (text) - רשימת תגיות מופרדות בפסיקים
+- duration (float) - זמן משוער בשעות לביצוע המשימה
+
+### TaskComment
+- task (FK -> Task)
+- author (FK -> User)
+- content (text)
+- created_at (datetime)
+- updated_at (datetime)
 
 ## Endpoints
 ### Authentication
@@ -41,6 +50,15 @@ POST /api/tasks/
 GET /api/tasks/{id}/
 PUT /api/tasks/{id}/
 DELETE /api/tasks/{id}/
+```
+
+### Task Comments
+```
+GET /api/tasks/{task_id}/comments/
+POST /api/tasks/{task_id}/comments/
+GET /api/tasks/{task_id}/comments/{id}/
+PUT /api/tasks/{task_id}/comments/{id}/
+DELETE /api/tasks/{task_id}/comments/{id}/
 ```
 
 ## אבטחה
@@ -92,6 +110,10 @@ project/
 - מיון לפי תאריך/עדיפות
 - תצוגת לוח זמנים
 - התראות על משימות שמועדן מתקרב
+- תגיות למשימות (הוספה, חיפוש וסינון)
+- הערכת זמן למשימות
+- תצוגת קנבן (טודו - בתהליך - הושלם)
+- תגובות למשימות - אפשרות להוסיף תגובות ודיונים על משימות
 
 ## הגדרות Django
 ### Required Apps
@@ -125,5 +147,6 @@ REST_FRAMEWORK = {
 4. יישום API למשימות
 5. פיתוח ממשק משתמש בסיסי
 6. אינטגרציה של Frontend ו-Backend
-7. הוספת תכונות מתקדמות
-8. בדיקות ותיקון באגים
+7. הוספת תכונות מתקדמות (תגיות, זמן משוער, תצוגת קנבן)
+8. הוספת תגובות למשימות
+9. בדיקות ותיקון באגים

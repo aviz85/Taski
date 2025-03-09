@@ -45,29 +45,74 @@ class TaskSerializerTest(TestCase):
     
     def test_task_serializer_validation(self):
         """בדיקת ולידציה של הסריאלייזר"""
-        # נתונים חסרים
-        invalid_data = {
+        data = {
             'title': '',
-            'due_date': '',
+            'description': 'Test description',
+            'due_date': timezone.now() + timezone.timedelta(days=5),
+            'status': 'INVALID',
+            'priority': 'SUPER_HIGH',
+            'owner': self.user1.id,
+            'assigned_to': self.user2.id
         }
-        serializer = TaskSerializer(data=invalid_data)
+        
+        serializer = TaskSerializer(data=data)
         self.assertFalse(serializer.is_valid())
         self.assertIn('title', serializer.errors)
-        self.assertIn('due_date', serializer.errors)
+        self.assertIn('status', serializer.errors)
+        self.assertIn('priority', serializer.errors)
         
-        # נתונים תקינים
-        valid_data = {
-            'title': 'New Task',
-            'description': 'New description',
-            'due_date': timezone.now() + datetime.timedelta(days=3),
-            'status': 'IN_PROGRESS',
-            'priority': 'HIGH',
+    def test_task_serializer_create_with_tags_list(self):
+        """Test creating a task with tags_list."""
+        data = {
+            'title': 'New Task with Tags',
+            'description': 'Testing tags creation',
+            'due_date': timezone.now() + timezone.timedelta(days=5),
+            'status': 'TODO',
+            'priority': 'MEDIUM',
             'owner': self.user1.id,
             'assigned_to': self.user2.id,
+            'tags_list': ['important', 'frontend', 'bug']
         }
-        serializer = TaskSerializer(data=valid_data)
+        
+        serializer = TaskSerializer(data=data)
         self.assertTrue(serializer.is_valid())
-    
+        task = serializer.save()
+        
+        # Verify tags were correctly saved
+        self.assertEqual(task.tags, 'important,frontend,bug')
+        self.assertEqual(task.get_tags_list(), ['important', 'frontend', 'bug'])
+        
+    def test_task_serializer_update_with_tags_list(self):
+        """Test updating a task with tags_list."""
+        # First create a task with initial tags
+        task = Task.objects.create(
+            title='Task to Update',
+            description='Initial description',
+            due_date=timezone.now() + timezone.timedelta(days=5),
+            status='TODO',
+            priority='MEDIUM',
+            owner=self.user1,
+            assigned_to=self.user2,
+            tags='old,tags'
+        )
+        
+        # Update data with new tags
+        data = {
+            'title': 'Updated Task',
+            'description': 'Updated description',
+            'tags_list': ['new', 'updated', 'tags']
+        }
+        
+        serializer = TaskSerializer(task, data=data, partial=True)
+        self.assertTrue(serializer.is_valid())
+        updated_task = serializer.save()
+        
+        # Verify the update worked
+        self.assertEqual(updated_task.title, 'Updated Task')
+        self.assertEqual(updated_task.description, 'Updated description')
+        self.assertEqual(updated_task.tags, 'new,updated,tags')
+        self.assertEqual(updated_task.get_tags_list(), ['new', 'updated', 'tags'])
+
 class UserSerializerTest(TestCase):
     @classmethod
     def setUpTestData(cls):

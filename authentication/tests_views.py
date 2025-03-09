@@ -122,4 +122,34 @@ class AuthenticationViewsTest(TestCase):
         # בשלב פיתוח זה, אנחנו רק בודקים שהמסלול קיים
         # והבדיקה נשארת לצורכי תיעוד בלבד
         refresh_url = reverse('token_refresh')
-        self.assertIsNotNone(refresh_url) 
+        self.assertIsNotNone(refresh_url)
+    
+    def test_get_user_authenticated(self):
+        """Test that an authenticated user can get their user info."""
+        # Login first to get token
+        login_response = self.client.post(reverse('token_obtain_pair'), 
+                                         {'username': 'existinguser', 
+                                          'password': 'existingpassword'})
+        token = login_response.data['access']
+        
+        # Set up client with authentication
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        
+        # Call the get_user endpoint
+        response = self.client.get(reverse('get_user'))
+        
+        # Verify response
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], 'existinguser')
+        self.assertEqual(response.data['email'], 'existing@example.com')
+    
+    def test_get_user_unauthenticated(self):
+        """Test that an unauthenticated user cannot access their user info."""
+        # Clear any credentials
+        self.client.credentials()
+        
+        # Call the get_user endpoint
+        response = self.client.get(reverse('get_user'))
+        
+        # Verify response
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED) 

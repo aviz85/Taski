@@ -39,11 +39,11 @@ class TaskModelTest(TestCase):
     
     def test_task_ordering(self):
         """בדיקה שהמשימות מסודרות לפי תאריך יצירה בסדר יורד"""
-        # יצירת משימה נוספת עם תאריך יצירה מאוחר יותר
+        task1 = self.task
         task2 = Task.objects.create(
             title='Test Task 2',
             description='This is another test task',
-            due_date=timezone.now() + datetime.timedelta(days=5),
+            due_date=timezone.now() + timezone.timedelta(days=7),
             status='TODO',
             priority='HIGH',
             owner=self.user1,
@@ -51,6 +51,72 @@ class TaskModelTest(TestCase):
         )
         
         tasks = Task.objects.all()
-        # המשימה החדשה אמורה להופיע ראשונה בגלל ה-ordering
-        self.assertEqual(tasks[0].id, task2.id)
-        self.assertEqual(tasks[1].id, self.task.id) 
+        self.assertEqual(tasks[0], task2)  # newer task should be first due to ordering
+        self.assertEqual(tasks[1], task1)
+    
+    def test_get_tags_list_empty(self):
+        """Test get_tags_list with empty tags."""
+        task = Task.objects.create(
+            title='Task with no tags',
+            description='Testing tag methods',
+            due_date=timezone.now() + timezone.timedelta(days=5),
+            status='TODO',
+            priority='MEDIUM',
+            owner=self.user1,
+            assigned_to=self.user2,
+            tags=''
+        )
+        
+        self.assertEqual(task.get_tags_list(), [])
+        
+    def test_get_tags_list_with_tags(self):
+        """Test get_tags_list with tags."""
+        task = Task.objects.create(
+            title='Task with tags',
+            description='Testing tag methods',
+            due_date=timezone.now() + timezone.timedelta(days=5),
+            status='TODO',
+            priority='MEDIUM',
+            owner=self.user1,
+            assigned_to=self.user2,
+            tags='urgent, feature, bug'
+        )
+        
+        expected_tags = ['urgent', 'feature', 'bug']
+        self.assertEqual(task.get_tags_list(), expected_tags)
+        
+    def test_set_tags_list_with_tags(self):
+        """Test set_tags_list with tags."""
+        task = Task.objects.create(
+            title='Setting tags task',
+            description='Testing set_tags_list method',
+            due_date=timezone.now() + timezone.timedelta(days=5),
+            status='TODO',
+            priority='MEDIUM',
+            owner=self.user1,
+            assigned_to=self.user2
+        )
+        
+        new_tags = ['priority', 'backend', 'v2']
+        task.set_tags_list(new_tags)
+        
+        self.assertEqual(task.tags, 'priority,backend,v2')
+        self.assertEqual(task.get_tags_list(), new_tags)
+        
+    def test_set_tags_list_empty(self):
+        """Test set_tags_list with empty list."""
+        task = Task.objects.create(
+            title='Setting empty tags',
+            description='Testing set_tags_list with empty list',
+            due_date=timezone.now() + timezone.timedelta(days=5),
+            status='TODO',
+            priority='MEDIUM',
+            owner=self.user1,
+            assigned_to=self.user2,
+            tags='old,tags'
+        )
+        
+        task.set_tags_list([])
+        
+        self.assertEqual(task.tags, "")
+        self.assertEqual(task.get_tags_list(), []) 
