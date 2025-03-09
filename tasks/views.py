@@ -1,13 +1,17 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, filters, status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from .models import Task, TaskComment, ChecklistItem
 from .serializers import TaskSerializer, TaskCommentSerializer, ChecklistItemSerializer
+import logging
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -69,8 +73,16 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
         if not (task.owner == self.request.user or task.assigned_to == self.request.user):
             # This should be prevented by permissions, but check anyway
             raise PermissionDenied("You don't have permission to comment on this task")
-            
-        serializer.save(task=task, author=self.request.user)
+        
+        # Log the content for debugging
+        content = self.request.data.get('content', '')
+        logger.debug(f"Creating comment with content: {content}")
+        
+        try:
+            serializer.save(task=task, author=self.request.user)
+        except Exception as e:
+            logger.error(f"Error creating comment: {str(e)}")
+            raise ValidationError(f"Error creating comment: {str(e)}")
 
 
 class ChecklistItemViewSet(viewsets.ModelViewSet):

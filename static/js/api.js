@@ -36,7 +36,7 @@ const API = {
      */
     getHeaders(includeToken = true) {
         const headers = {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json; charset=utf-8'
         };
         
         if (includeToken && this.accessToken) {
@@ -510,18 +510,39 @@ const API = {
      */
     async createTaskComment(taskId, content) {
         try {
+            console.log('Creating comment with content:', content);
+            
+            // Only send content, task and author are set on the server
             const response = await this.fetchWithAuth(`${this.BASE_URL}/tasks/${taskId}/comments/`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    content
+                    content: content
                 })
             });
             
             if (response.ok) {
                 return await response.json();
             } else {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to create comment');
+                let errorMessage = 'Failed to create comment';
+                try {
+                    const errorData = await response.json();
+                    console.error('Server error response:', errorData);
+                    
+                    // Extract detailed error messages if available
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    } else if (errorData.content) {
+                        // Field-specific error for content
+                        errorMessage = `Content error: ${errorData.content}`;
+                    } else if (errorData.non_field_errors) {
+                        errorMessage = errorData.non_field_errors.join(', ');
+                    }
+                } catch (jsonError) {
+                    // If response isn't valid JSON
+                    errorMessage = `Error (${response.status}): ${response.statusText}`;
+                }
+                
+                throw new Error(errorMessage);
             }
         } catch (error) {
             console.error(`Create comment for task ${taskId} error:`, error);

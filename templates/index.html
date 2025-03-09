@@ -123,115 +123,135 @@
                     <span class="close-modal">&times;</span>
                     <h2 id="modal-title">Task Details</h2>
                     
-                    <form id="task-form">
-                        <div class="form-group">
-                            <label for="task-title">Title</label>
-                            <input type="text" id="task-title" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="task-description">Description</label>
-                            <textarea id="task-description" rows="3"></textarea>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="task-due-date">Due Date</label>
-                                <input type="datetime-local" id="task-due-date" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="task-duration">Duration (hours)</label>
-                                <input type="number" id="task-duration" min="0" step="0.5">
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="task-status">Status</label>
-                                <select id="task-status">
-                                    <option value="TODO">Todo</option>
-                                    <option value="IN_PROGRESS">In Progress</option>
-                                    <option value="DONE">Done</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="task-priority">Priority</label>
-                                <select id="task-priority">
-                                    <option value="LOW">Low</option>
-                                    <option value="MEDIUM">Medium</option>
-                                    <option value="HIGH">High</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="task-tags">Tags (comma separated)</label>
-                            <input type="text" id="task-tags" placeholder="e.g. work, urgent, feature">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="task-assigned-to">Assigned To</label>
-                            <select id="task-assigned-to">
-                                <!-- Users will be populated by JS -->
-                            </select>
-                        </div>
-                        
-                        <input type="hidden" id="task-id">
-                        
-                        <div class="modal-actions">
-                            <button type="button" id="delete-task-btn" class="btn btn-danger hidden">Delete</button>
-                            <button type="submit" class="btn btn-primary">Save Task</button>
-                        </div>
-                    </form>
+                    <!-- Tabs Navigation -->
+                    <div class="tabs-navigation">
+                        <button type="button" class="tab-btn active" data-tab="details">
+                            <i class="fas fa-info-circle"></i> Details
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="checklist">
+                            <i class="fas fa-tasks"></i> Checklist
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="comments">
+                            <i class="far fa-comments"></i> Comments
+                        </button>
+                    </div>
                     
-                    <!-- Task Checklist Section - Only shown when editing an existing task -->
-                    <div id="task-checklist" class="task-checklist hidden">
-                        <div class="checklist-header">
-                            <h3><i class="fas fa-tasks"></i> Checklist</h3>
-                            <div class="checklist-progress">
-                                <div class="progress-bar">
-                                    <div id="checklist-progress-value" class="progress-value" style="width: 0%"></div>
-                                </div>
-                                <span id="checklist-progress-text">0%</span>
+                    <!-- Task Details Tab (Initially Visible) -->
+                    <div id="details-tab" class="tab-content active">
+                        <form id="task-form">
+                            <div class="form-group">
+                                <label for="task-title">Title</label>
+                                <input type="text" id="task-title" required>
                             </div>
-                        </div>
-                        
-                        <!-- Checklist Items -->
-                        <div id="checklist-items" class="checklist-items">
-                            <!-- Items will be populated by JS -->
-                            <div class="no-items">No checklist items yet</div>
-                        </div>
-                        
-                        <!-- Add Checklist Item Form -->
-                        <form id="checklist-form" class="checklist-form">
-                            <div class="checklist-input-group">
-                                <input type="text" id="checklist-text" placeholder="Add a checklist item..." required>
-                                <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i></button>
+                            
+                            <div class="form-group">
+                                <label for="task-description">Description</label>
+                                <textarea id="task-description" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="task-due-date">Due Date</label>
+                                    <input type="datetime-local" id="task-due-date" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="task-duration">Duration (hours)</label>
+                                    <input type="number" id="task-duration" min="0" step="0.5">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="task-status">Status</label>
+                                    <select id="task-status">
+                                        <option value="TODO">Todo</option>
+                                        <option value="IN_PROGRESS">In Progress</option>
+                                        <option value="DONE">Done</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="task-priority">Priority</label>
+                                    <select id="task-priority">
+                                        <option value="LOW">Low</option>
+                                        <option value="MEDIUM">Medium</option>
+                                        <option value="HIGH">High</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="task-tags">Tags (comma separated)</label>
+                                <input type="text" id="task-tags" placeholder="e.g. work, urgent, feature">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="task-assigned-to">Assigned To</label>
+                                <select id="task-assigned-to">
+                                    <!-- Users will be populated by JS -->
+                                </select>
+                            </div>
+                            
+                            <input type="hidden" id="task-id">
+                            
+                            <div class="modal-actions">
+                                <button type="button" id="delete-task-btn" class="btn btn-danger hidden">Delete</button>
+                                <button type="submit" class="btn btn-primary">Save Task</button>
                             </div>
                         </form>
                     </div>
                     
-                    <!-- Task Comments Section - Only shown when editing an existing task -->
-                    <div id="task-comments" class="task-comments hidden">
-                        <h3><i class="far fa-comments"></i> Comments</h3>
-                        
-                        <!-- Comments List -->
-                        <div id="comments-list" class="comments-list">
-                            <!-- Comments will be populated by JS -->
-                            <div class="no-comments">No comments yet</div>
+                    <!-- Checklist Tab -->
+                    <div id="checklist-tab" class="tab-content">
+                        <div id="task-checklist" class="task-checklist">
+                            <div class="checklist-header">
+                                <h3><i class="fas fa-tasks"></i> Checklist</h3>
+                                <div class="checklist-progress">
+                                    <div class="progress-bar">
+                                        <div id="checklist-progress-value" class="progress-value" style="width: 0%"></div>
+                                    </div>
+                                    <span id="checklist-progress-text">0%</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Checklist Items -->
+                            <div id="checklist-items" class="checklist-items">
+                                <!-- Items will be populated by JS -->
+                                <div class="no-items">No checklist items yet</div>
+                            </div>
+                            
+                            <!-- Add Checklist Item Form -->
+                            <form id="checklist-form" class="checklist-form">
+                                <div class="checklist-input-group">
+                                    <input type="text" id="checklist-text" placeholder="Add a checklist item..." required>
+                                    <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i></button>
+                                </div>
+                            </form>
                         </div>
-                        
-                        <!-- Add Comment Form -->
-                        <form id="comment-form" class="comment-form">
-                            <div class="form-group">
-                                <textarea id="comment-content" placeholder="Add a comment..." required></textarea>
+                    </div>
+                    
+                    <!-- Comments Tab -->
+                    <div id="comments-tab" class="tab-content">
+                        <div id="task-comments" class="task-comments">
+                            <h3><i class="far fa-comments"></i> Comments</h3>
+                            
+                            <!-- Comments List -->
+                            <div id="comments-list" class="comments-list">
+                                <!-- Comments will be populated by JS -->
+                                <div class="no-comments">No comments yet</div>
                             </div>
-                            <div class="comment-form-actions">
-                                <button type="submit" class="btn btn-primary">Add Comment</button>
-                            </div>
-                        </form>
+                            
+                            <!-- Add Comment Form -->
+                            <form id="comment-form" class="comment-form">
+                                <div class="form-group">
+                                    <textarea id="comment-content" placeholder="Add a comment..." required></textarea>
+                                </div>
+                                <div class="comment-form-actions">
+                                    <button type="submit" class="btn btn-primary">Add Comment</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>

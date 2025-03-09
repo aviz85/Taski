@@ -24,10 +24,10 @@ const Tasks = {
         statusFilter: document.getElementById('status-filter'),
         priorityFilter: document.getElementById('priority-filter'),
         tagFilter: document.getElementById('tag-filter'),
-        commentsSection: document.getElementById('task-comments'),
+        commentsTab: document.getElementById('comments-tab'),
         commentsList: document.getElementById('comments-list'),
         commentForm: document.getElementById('comment-form'),
-        checklistSection: document.getElementById('task-checklist'),
+        checklistTab: document.getElementById('checklist-tab'),
         checklistItems: document.getElementById('checklist-items'),
         checklistForm: document.getElementById('checklist-form'),
         checklistProgressValue: document.getElementById('checklist-progress-value'),
@@ -178,9 +178,13 @@ const Tasks = {
         this.elements.emptyState.classList.add('hidden');
         taskList.classList.remove('hidden');
         
-        // Render each task
-        this.tasks.forEach(task => {
+        // Render each task with staggered animation
+        this.tasks.forEach((task, index) => {
             const taskElement = this.createTaskElement(task);
+            
+            // Apply staggered animation delay
+            taskElement.style.animationDelay = `${index * 0.05}s`;
+            
             taskList.appendChild(taskElement);
         });
     },
@@ -203,18 +207,25 @@ const Tasks = {
         if (task.tags) {
             const tags = task.tags.split(',').map(tag => tag.trim()).filter(Boolean);
             if (tags.length > 0) {
+                // Limit to maximum 4 tags to avoid overflow
+                const displayTags = tags.slice(0, 4);
+                const remainingCount = tags.length - 4;
+                
                 tagsHtml = `
                     <div class="task-tags">
-                        ${tags.map(tag => `<span class="task-tag">${tag}</span>`).join('')}
+                        ${displayTags.map(tag => `<span class="task-tag">${tag}</span>`).join('')}
+                        ${remainingCount > 0 ? `<span class="task-tag">+${remainingCount} more</span>` : ''}
                     </div>
                 `;
             }
         }
         
+        // Create badges container for duration and checklist
+        let badgesHtml = '';
+        
         // Duration badge if present
-        let durationHtml = '';
         if (task.duration) {
-            durationHtml = `
+            badgesHtml += `
                 <div class="task-duration">
                     <i class="fas fa-clock"></i> ${task.duration} ${task.duration === 1 ? 'hour' : 'hours'}
                 </div>
@@ -222,43 +233,65 @@ const Tasks = {
         }
         
         // Checklist progress badge if present
-        let checklistHtml = '';
         if (task.checklist_items && task.checklist_items.length > 0) {
             const completionPercentage = task.checklist_completion || 0;
-            checklistHtml = `
-                <div class="task-checklist-badge">
+            badgesHtml += `
+                <div class="task-checklist-badge" data-tab="checklist">
                     <i class="fas fa-tasks"></i> ${completionPercentage}% complete
                 </div>
             `;
         }
         
+        // Wrap badges in container if any exist
+        if (badgesHtml) {
+            badgesHtml = `<div class="badges-container">${badgesHtml}</div>`;
+        }
+        
         taskCard.innerHTML = `
             <div class="task-header">
-                <h3 class="task-title">${task.title}</h3>
+                <h3 class="task-title" title="${task.title}">${task.title}</h3>
                 <span class="task-status status-${task.status}">${this.formatStatus(task.status)}</span>
             </div>
             <div class="task-description">${task.description || 'No description provided.'}</div>
             <div class="task-meta">
                 <div class="task-meta-row">
-                    <div class="task-due-date ${isPastDue ? '' : 'future'}">
+                    <div class="task-due-date ${isPastDue ? '' : 'future'}" title="Due date">
                         <i class="far fa-calendar-alt"></i> ${formattedDate}
                     </div>
-                    <div class="task-assigned">
+                    <div class="task-assigned" title="Assigned to: ${task.assigned_to_details.username}">
                         <i class="far fa-user"></i> ${task.assigned_to_details.username}
                     </div>
                 </div>
                 ${tagsHtml}
-                ${durationHtml}
-                ${checklistHtml}
+                ${badgesHtml}
             </div>
             <div class="task-actions">
-                <button class="btn btn-primary task-btn edit-task">Edit</button>
+                <button class="btn btn-primary task-btn edit-task">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
             </div>
         `;
         
         // Add click event for editing
         taskCard.querySelector('.edit-task').addEventListener('click', () => {
             this.showTaskModal(task);
+        });
+        
+        // Add click event for checklist badge
+        const checklistBadge = taskCard.querySelector('.task-checklist-badge');
+        if (checklistBadge) {
+            checklistBadge.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent card click
+                this.showTaskModal(task, 'checklist');
+            });
+        }
+        
+        // Make the entire card clickable for convenience
+        taskCard.addEventListener('click', (e) => {
+            // Don't trigger if clicked on the edit button or checklist badge
+            if (!e.target.closest('.edit-task') && !e.target.closest('.task-checklist-badge')) {
+                this.showTaskModal(task);
+            }
         });
         
         return taskCard;
@@ -299,7 +332,7 @@ const Tasks = {
     /**
      * Show task modal for create/edit
      */
-    showTaskModal(task = null) {
+    showTaskModal(task = null, activeTab = 'details') {
         const isEdit = !!task;
         this.currentTaskId = isEdit ? task.id : null;
         
@@ -329,13 +362,17 @@ const Tasks = {
             document.getElementById('task-tags').value = task.tags || '';
             document.getElementById('task-assigned-to').value = task.assigned_to;
             
-            // Load and show comments for existing task
-            this.elements.commentsSection.classList.remove('hidden');
+            // Load comments and checklist data
             this.loadComments(task.id);
-            
-            // Load and show checklist for existing task
-            this.elements.checklistSection.classList.remove('hidden');
             this.loadChecklist(task.id);
+            
+            // Make all tabs visible for existing tasks
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.style.display = 'flex';
+            });
+            
+            // Activate the specified tab (defaults to details)
+            this.activateTab(activeTab);
         } else {
             // Default values for new task
             document.getElementById('task-id').value = '';
@@ -348,13 +385,57 @@ const Tasks = {
             tomorrow.setDate(tomorrow.getDate() + 1);
             document.getElementById('task-due-date').value = tomorrow.toISOString().slice(0, 16);
             
-            // Hide comments and checklist sections for new task
-            this.elements.commentsSection.classList.add('hidden');
-            this.elements.checklistSection.classList.add('hidden');
+            // Hide checklist and comments tabs for new tasks
+            document.querySelectorAll('.tab-btn:not([data-tab="details"])').forEach(btn => {
+                btn.style.display = 'none';
+            });
+            
+            // Make sure we're on the details tab
+            this.activateTab('details');
         }
+        
+        // Set up tab event listeners
+        this.setupTabNavigation();
         
         // Show modal
         this.elements.taskModal.classList.remove('hidden');
+    },
+    
+    /**
+     * Set up tab navigation event listeners
+     */
+    setupTabNavigation() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        // Remove existing event listeners (to prevent duplicates)
+        tabBtns.forEach(btn => {
+            btn.replaceWith(btn.cloneNode(true));
+        });
+        
+        // Add event listeners to fresh buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.getAttribute('data-tab');
+                this.activateTab(tabName);
+            });
+        });
+    },
+    
+    /**
+     * Activate a specific tab
+     */
+    activateTab(tabName) {
+        // Update active tab button
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+        });
+        
+        // Show active tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            const isActive = content.id === `${tabName}-tab`;
+            content.classList.toggle('active', isActive);
+        });
     },
     
     /**
@@ -675,7 +756,19 @@ const Tasks = {
             }, 100);
         } catch (error) {
             console.error('Error creating comment:', error);
-            alert('Failed to add comment. Please try again.');
+            
+            // Get more detailed error info if available
+            let errorMessage = 'Failed to add comment. Please try again.';
+            if (error.message) {
+                errorMessage = `Error: ${error.message}`;
+            }
+            
+            alert(errorMessage);
+            
+            // Log detailed information for debugging
+            console.log('Comment content:', content);
+            console.log('Content length:', content.length);
+            console.log('Content encoding:', encodeURIComponent(content));
         } finally {
             // Re-enable form
             const submitBtn = this.elements.commentForm.querySelector('button[type="submit"]');

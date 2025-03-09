@@ -64,7 +64,17 @@ class TaskCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskComment
         fields = ['id', 'task', 'author', 'content', 'created_at', 'updated_at', 'author_details']
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'task', 'author']
+    
+    def validate_content(self, value):
+        """
+        Validate that the content field is not empty and can handle any character encoding.
+        """
+        if not value or not value.strip():
+            raise serializers.ValidationError("Comment content cannot be empty")
+        
+        # The content is valid if we got here
+        return value
     
     def create(self, validated_data):
         return TaskComment.objects.create(**validated_data)
